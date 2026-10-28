@@ -5,7 +5,14 @@ export const isLive = live
 const DEMO_KEY = 'base_v1_demo_20261028'
 const SESSION_KEY = 'base_v1_session'
 const now = () => new Date().toISOString()
-const id = () => crypto.randomUUID()
+const id = () => {
+ if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()
+ const bytes = new Uint8Array(16)
+ crypto.getRandomValues(bytes)
+ bytes[6] = (bytes[6] & 0x0f) | 0x40
+ bytes[8] = (bytes[8] & 0x3f) | 0x80
+ return [...bytes].map((n, i) => ([4,6,8,10].includes(i) ? '-' : '') + n.toString(16).padStart(2, '0')).join('')
+}
 const demoOwner = '00000000-0000-4000-8000-000000000001'
 const samples = [
   { id:'00000000-0000-4000-8000-000000000101', title:'Temporary Structures',summary:'Lightweight architectures, temporary inhabitation and modular constructions.',cover_url:'/assets/study-1.svg',author_name:'Studio Field',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null },
