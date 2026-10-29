@@ -34,7 +34,7 @@ function seed(){return {spaces:samples.map(s=>({...s})),materials:demoMaterials.
 let demo
 function readDemo(){if(demo)return demo;try{demo=JSON.parse(localStorage.getItem(DEMO_KEY)||'null')}catch{};if(!demo){demo=seed();saveDemo()}demo.operation_logs ||= [];return demo}
 function saveDemo(){localStorage.setItem(DEMO_KEY,JSON.stringify(demo))}
-let session=null, user=null, isMember=false
+let session=null, user=null, isMember=false, authIssue=''
 function bearer(){return session?.access_token || (config.supabaseAnonKey.startsWith('eyJ')?config.supabaseAnonKey:null)}
 async function request(path,{method='GET',body,prefer}={}){
  const r=await fetch(config.supabaseUrl.replace(/\/$/,'')+path,{method,headers:{apikey:config.supabaseAnonKey,...(bearer()?{Authorization:`Bearer ${bearer()}`} : {}),...(body?{'Content-Type':'application/json'}:{}),...(prefer?{Prefer:prefer}:{})},body:body===undefined?undefined:JSON.stringify(body)})
@@ -49,17 +49,32 @@ async function refresh(){if(!session?.refresh_token)return;try{const next=await 
 async function bootAuth(){
  if(!live){readDemo();return}
  const params=new URLSearchParams(location.hash.slice(1));
+ if(params.has('error')||params.has('error_code')){
+  authIssue=(params.get('error_description')||params.get('error')||'Email sign-in link is invalid or expired. Please request another one.').slice(0,500);
+  history.replaceState(null,'',location.pathname+location.search+'#signin');
+ }
  if(params.has('access_token')&&params.has('refresh_token')){
   session={access_token:params.get('access_token'),refresh_token:params.get('refresh_token'),expires_at:Math.floor(Date.now()/1000)+Number(params.get('expires_in')||3600)}
-  localStorage.setItem(SESSION_KEY,JSON.stringify(session));history.replaceState(null,'',location.pathname+'#explore')
+  localStorage.setItem(SESSION_KEY,JSON.stringify(session));history.replaceState(null,'',location.pathname+location.search+'#signin')
  }
  try{session=JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch{session=null}
  if(session){if(session.expires_at && session.expires_at<Math.floor(Date.now()/1000)+100)await refresh()
   if(session){try{user=await request('/auth/v1/user');const memberships=await rest('memberships',`select=status&user_id=eq.${encodeURIComponent(user.id)}&limit=1`);isMember=memberships?.[0]?.status==='active'}catch{session=null;user=null;isMember=false;localStorage.removeItem(SESSION_KEY)}}}
 }
 export async function init(){await bootAuth()}
+export function authErrorMessage(){return authIssue}
 export function me(){if(!live){const d=readDemo();return {user:d.user,member:d.member,demo:true}}return {user,member:isMember,demo:false}}
-export async function signIn(email){if(!live)return;return request('/auth/v1/otp?redirect_to='+encodeURIComponent(location.origin+location.pathname),{method:'POST',body:{email,create_user:false}})}
+export async function signIn(email){
+ if(!live)return
+ authIssue=''
+ const normalized=String(email||'').trim().toLowerCase()
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized))throw new Error('Enter a valid email address.')
+ // Email signup creates an identity only. Only explicitly preapproved addresses
+ // receive active membership through the private database trigger.
+ return request('/auth/v1/otp?redirect_to='+encodeURIComponent(location.origin+location.pathname),{
+  method:'POST',body:{email:normalized,create_user:true}
+ })
+}
 export async function signOut(){if(!live){demo=seed();saveDemo();return}try{await request('/auth/v1/logout',{method:'POST'})}catch{}session=null;user=null;isMember=false;localStorage.removeItem(SESSION_KEY)}
 function ensureMember(){if(!me().member)throw new Error('Active membership is required.')}
 export async function listSpaces(scope='explore'){
