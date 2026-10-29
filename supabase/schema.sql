@@ -38,14 +38,14 @@ create table public.space_collaborators (
 create table public.materials (
  id uuid primary key default gen_random_uuid(),
  space_id uuid not null references public.spaces(id) on delete cascade,
- type text not null check (type in ('note','link','image')),
+ type text not null check (type in ('note','link','image','component','procedure')),
  title text not null check (char_length(title) between 1 and 180),
  url text check (url is null or (url ~ '^https://[^[:space:]]+$' and char_length(url) <= 2048)),
  body text check (body is null or char_length(body) <= 10000),
  position bigint generated always as identity,
  created_at timestamptz not null default now(),
  constraint material_shape check (
-  (type='note' and body is not null and trim(body)<>'' and url is null)
+  (type in ('note','component','procedure') and body is not null and trim(body)<>'' and url is null)
   or (type in ('link','image') and url is not null)
  )
 );
@@ -57,6 +57,20 @@ create table public.releases (
  created_at timestamptz not null default now(),
  unique(space_id,version)
 );
+-- The composite foreign key prevents an operational event from referencing
+-- a release belonging to another Space.
+create unique index releases_space_id_id_uidx on public.releases(space_id,id);
+create table public.operation_logs (
+ id uuid primary key default gen_random_uuid(),
+ space_id uuid not null references public.spaces(id) on delete cascade,
+ release_id uuid not null,
+ actor_id uuid not null references auth.users(id),
+ title text not null check (char_length(btrim(title)) between 2 and 180),
+ details text not null default '' check (char_length(details) <= 5000),
+ created_at timestamptz not null default now(),
+ constraint operation_logs_space_release_fk foreign key(space_id,release_id)
+   references public.releases(space_id,id) on delete cascade
+);
 alter table public.spaces add constraint spaces_parent_release_fk
  foreign key (parent_release_id) references public.releases(id) on delete set null;
 
@@ -65,6 +79,7 @@ create index idx_spaces_public on public.spaces(updated_at desc) where visibilit
 create index idx_materials_space on public.materials(space_id,position);
 create index idx_collaborators_user on public.space_collaborators(user_id,space_id);
 create index idx_releases_space on public.releases(space_id,version desc);
+create index idx_operation_logs_space on public.operation_logs(space_id,created_at desc);
 
 create function private.active_member(target_user_id uuid default auth.uid())
 returns boolean language sql stable security definer set search_path = '' as $$
@@ -199,20 +214,28 @@ alter table public.spaces enable row level security;
 alter table public.space_collaborators enable row level security;
 alter table public.materials enable row level security;
 alter table public.releases enable row level security;
+alter table public.operation_logs enable row level security;
 alter table public.profiles force row level security;
 alter table public.memberships force row level security;
 alter table public.spaces force row level security;
 alter table public.space_collaborators force row level security;
 alter table public.materials force row level security;
 alter table public.releases force row level security;
+alter table public.operation_logs force row level security;
 
 revoke all on public.profiles,public.memberships,public.spaces,
- public.space_collaborators,public.materials,public.releases from public,anon,authenticated;
+ public.space_collaborators,public.materials,public.releases,public.operation_logs from public,anon,authenticated;
 grant select on public.profiles to anon,authenticated;
 grant update(display_name,bio) on public.profiles to authenticated;
 grant select on public.memberships to authenticated;
 grant select on public.spaces,public.materials,public.releases to anon,authenticated;
-grant insert,update,delete on public.spaces,public.materials to authenticated;
+-- Do not allow browser inserts or updates to forge a fork parent, owner,
+-- or attribution after creation. Only trusted server RPC can set lineage.
+grant insert(owner_id,title,summary,author_name,cover_url,visibility),
+ update(title,summary,cover_url,visibility), delete on public.spaces to authenticated;
+grant insert,update,delete on public.materials to authenticated;
+grant select on public.operation_logs to anon,authenticated;
+grant insert(space_id,release_id,actor_id,title,details) on public.operation_logs to authenticated;
 grant select on public.space_collaborators to authenticated;
 
 create policy profile_read on public.profiles for select to anon,authenticated using(true);
@@ -244,6 +267,13 @@ create policy materials_delete on public.materials for delete to authenticated
  using(private.can_edit_space(space_id,(select auth.uid())));
 create policy releases_read on public.releases for select to anon,authenticated
  using(private.can_read_space(space_id,(select auth.uid())));
+-- Append-only operational records are always tied to an immutable release.
+-- Only authorised, active contributors may add records; nobody may edit history.
+create policy operation_logs_read on public.operation_logs for select to anon,authenticated
+ using(private.can_read_space(space_id,(select auth.uid())));
+create policy operation_logs_insert on public.operation_logs for insert to authenticated
+ with check(actor_id=(select auth.uid())
+  and private.can_edit_space(space_id,(select auth.uid())));
 
 revoke all on function private.active_member(uuid),private.can_read_space(uuid,uuid),
  private.can_edit_space(uuid,uuid),private.release_space_internal(uuid),

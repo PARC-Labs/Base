@@ -1,0 +1,34 @@
+name: Publish Base preview
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: base-pages
+  cancel-in-progress: true
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Verify app
+        run: npm run check && npm test
+      - name: Prepare static site
+        run: |
+          mkdir -p dist/src dist/assets
+          cp index.html dist/
+          cp src/*.js src/*.css dist/src/
+          cp assets/* dist/assets/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+      - id: deployment
+        uses: actions/deploy-pages@v4

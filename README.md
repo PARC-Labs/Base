@@ -5,15 +5,15 @@
 ## What's included
 
 - Public Explore directory for published research Spaces.
-- Responsive, editorial-style interfaces for visual Grid and reading Document views.
-- Private/public Spaces, image URL / link / note material, editable metadata.
+- Responsive, editorial-style interfaces for visual Grid, reading Document, structural Build and activity Operate views.
+- Private/public Spaces, image URL / link / note material, editable metadata and optional components and procedures.
 - Signed-in membership gate; invited accounts only. Accounts are **not** created automatically at sign-in.
-- Existing-member collaboration invitations.
-- Immutable releases and private forks of publicly released Spaces, with lineage.
+- Owner-authorised collaboration with existing active members (currently direct access grants, without acceptance or notifications).
+- Immutable releases and private forks of publicly released Spaces, with server-enforced lineage; append-only activity records referencing a released version.
 - RLS-backed access, owner checks and server-validated release/fork operations.
 - Fully interactive **single-browser preview mode** without a backend.
 
-**Not in v1:** native binary upload, image processing, full-text indexing, payment collection, application intake, notifications, member directory, automatic merge, executable protocols, agent orchestration. These are deliberately not claimed as operational.
+**Not in v1:** native binary upload, image processing, full-text indexing, payment collection, application intake, notifications, member directory, automatic merge, executable protocols, agent orchestration or robotic operations. The Operate view records human activities; it does not execute procedures. These are deliberately not claimed as operational.
 
 ## Run without accounts (preview mode)
 
@@ -58,9 +58,9 @@ The `private` schema must **not** be exposed through PostgREST. Keep only `publi
 
 ### Data model
 
-`profiles`, `memberships`, `spaces`, `space_collaborators`, `materials`, `releases`.
+`profiles`, `memberships`, `spaces`, `space_collaborators`, `materials`, `releases`, `operation_logs`.
 
-A **Space** is a working collection. A **Release** is an immutable JSON snapshot of its material. A **Fork** creates a new private Space from a public release and records `parent_release_id`. Published Spaces can still be edited after a release, without mutating that snapshot.
+A **Space** is a working collection. A **Release** is an immutable JSON snapshot of its material. A **Fork** creates a new private Space from a public release and records `parent_release_id`. Published Spaces can still be edited after a release, without mutating that snapshot. Components and procedures are structured research material; operational activity references an immutable release. The database disallows clients from forging fork ancestry through normal Space inserts/updates.
 
 ## Design intent
 
@@ -72,9 +72,17 @@ The visual system is deliberately quiet: editorial typography, spacious grids, m
 2. Member profile editing, invitation acceptance and notification delivery.
 3. Better material capture and reordering, rich previews, PDF support and public search.
 4. Side-by-side release comparison, explicit reuse licences and fork provenance UI.
-5. Structured projects/modules and operational-protocol experiments.
+5. Extend structured projects/modules into typed, validated and optionally executable protocols with controlled external integrations.
 6. Formal admissions and payments; billing must remain independent of editorial selection.
+
+## Hosting and current status
+
+The application lives in `PARC-Labs/Base`, separate from Applied State. It can be served as a static site. The repository includes a GitHub Actions Pages deployment workflow and supports repository-subpath URLs, so Vercel is not required.
+
+**GitHub Pages is not yet enabled** on the private repository. Go to the repository's Settings → Pages and choose GitHub Actions for deployment. Private repository Pages availability depends on GitHub plan and organization settings. The preview only stores changes in the visitor's browser until Base has a dedicated Supabase project.
+
+The Supabase schema has not yet been applied to a live Base project. Test row-level security and three-account access isolation before admitting any real users. No new paid infrastructure should be provisioned without account owner approval.
 
 ## Repository
 
-This export is a standalone Git-ready project. To place it in a newly created repository, create an empty `base` repository under the desired GitHub owner, then push this source. The current connected GitHub application can update existing repositories but cannot create new repositories.
+[PARC-Labs/Base](https://github.com/PARC-Labs/Base) — standalone codebase, independent of the institutional website.

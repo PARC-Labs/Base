@@ -15,24 +15,24 @@ const id = () => {
 }
 const demoOwner = '00000000-0000-4000-8000-000000000001'
 const samples = [
-  { id:'00000000-0000-4000-8000-000000000101', title:'Temporary Structures',summary:'Lightweight architectures, temporary inhabitation and modular constructions.',cover_url:'/assets/study-1.svg',author_name:'Studio Field',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null },
-  { id:'00000000-0000-4000-8000-000000000102', title:'Material Ecologies',summary:'Living materials, ceramic processes and the ecology of making.',cover_url:'/assets/study-2.svg',author_name:'L. Hart',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null },
-  { id:'00000000-0000-4000-8000-000000000103', title:'Marine Instruments',summary:'Low-cost sensing, open ocean instrumentation and situated observation.',cover_url:'/assets/study-3.svg',author_name:'Field Laboratory',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null },
-  { id:'00000000-0000-4000-8000-000000000104', title:'Spatial Protocols',summary:'Processes, rules and interfaces for the organisation of shared environments.',cover_url:'/assets/study-4.svg',author_name:'Applied Research',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null }
+  { id:'00000000-0000-4000-8000-000000000101', title:'Temporary Structures',summary:'Lightweight architectures, temporary inhabitation and modular constructions.',cover_url:'assets/study-1.svg',author_name:'Studio Field',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null },
+  { id:'00000000-0000-4000-8000-000000000102', title:'Material Ecologies',summary:'Living materials, ceramic processes and the ecology of making.',cover_url:'assets/study-2.svg',author_name:'L. Hart',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null },
+  { id:'00000000-0000-4000-8000-000000000103', title:'Marine Instruments',summary:'Low-cost sensing, open ocean instrumentation and situated observation.',cover_url:'assets/study-3.svg',author_name:'Field Laboratory',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null },
+  { id:'00000000-0000-4000-8000-000000000104', title:'Spatial Protocols',summary:'Processes, rules and interfaces for the organisation of shared environments.',cover_url:'assets/study-4.svg',author_name:'Applied Research',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null }
 ]
 const demoMaterials = [
- {space_id:samples[0].id,type:'image',title:'Canopy geometry',url:'/assets/study-1.svg',body:'Form, tension and temporary assembly.',position:1},
+ {space_id:samples[0].id,type:'image',title:'Canopy geometry',url:'assets/study-1.svg',body:'Form, tension and temporary assembly.',position:1},
  {space_id:samples[0].id,type:'note',title:'Design premise',url:null,body:'A family of easily transported structures with few bespoke connections and minimal permanent foundations.',position:2},
  {space_id:samples[0].id,type:'link',title:'Research reference',url:'https://www.are.na/',body:'Shared sources on temporary structures and material culture.',position:3},
- {space_id:samples[1].id,type:'image',title:'Material study 01',url:'/assets/study-2.svg',body:'Surface, repetition, form.',position:1},
+ {space_id:samples[1].id,type:'image',title:'Material study 01',url:'assets/study-2.svg',body:'Surface, repetition, form.',position:1},
  {space_id:samples[1].id,type:'note',title:'Working observations',url:null,body:'How might biological and geological time become legible through material transformation?',position:2},
- {space_id:samples[2].id,type:'image',title:'Observation system',url:'/assets/study-3.svg',body:'Diagram of a marine sensing installation.',position:1},
+ {space_id:samples[2].id,type:'image',title:'Observation system',url:'assets/study-3.svg',body:'Diagram of a marine sensing installation.',position:1},
  {space_id:samples[2].id,type:'note',title:'Open questions',url:null,body:'Develop reproducible instrument designs with transparent calibrations and public records of uncertainty.',position:2},
- {space_id:samples[3].id,type:'image',title:'Spatial form',url:'/assets/study-4.svg',body:'Geometry and spatial organisation.',position:1}
+ {space_id:samples[3].id,type:'image',title:'Spatial form',url:'assets/study-4.svg',body:'Geometry and spatial organisation.',position:1}
 ]
-function seed(){return {spaces:samples.map(s=>({...s})),materials:demoMaterials.map(x=>({...x,id:id(),created_at:now()})),releases:[],collaborators:[],user:{id:demoOwner,email:'founder@base.demo',name:'Founding participant'},member:true}}
+function seed(){return {spaces:samples.map(s=>({...s})),materials:demoMaterials.map(x=>({...x,id:id(),created_at:now()})),releases:[],collaborators:[],operation_logs:[],user:{id:demoOwner,email:'founder@base.demo',name:'Founding participant'},member:true}}
 let demo
-function readDemo(){if(demo)return demo;try{demo=JSON.parse(localStorage.getItem(DEMO_KEY)||'null')}catch{};if(!demo){demo=seed();saveDemo()}return demo}
+function readDemo(){if(demo)return demo;try{demo=JSON.parse(localStorage.getItem(DEMO_KEY)||'null')}catch{};if(!demo){demo=seed();saveDemo()}demo.operation_logs ||= [];return demo}
 function saveDemo(){localStorage.setItem(DEMO_KEY,JSON.stringify(demo))}
 let session=null, user=null, isMember=false
 function bearer(){return session?.access_token || config.supabaseAnonKey}
@@ -65,7 +65,11 @@ function ensureMember(){if(!me().member)throw new Error('Active membership is re
 export async function listSpaces(scope='explore'){
  if(!live){const d=readDemo();return d.spaces.filter(s=>scope==='mine'||s.visibility==='public').sort((a,b)=>b.updated_at.localeCompare(a.updated_at))}
  const spaces=await rest('spaces','select=id,title,summary,cover_url,author_name,visibility,owner_id,parent_release_id,updated_at&order=updated_at.desc&limit=200')
- return spaces.filter(s=>scope==='mine'?user && (s.owner_id===user.id||s.visibility==='private'):s.visibility==='public')
+ if(scope!=='mine')return spaces.filter(s=>s.visibility==='public')
+ if(!user)return []
+ const collaborations=await rest('space_collaborators',`select=space_id&user_id=eq.${encodeURIComponent(user.id)}`)
+ const joined=new Set(collaborations.map(c=>c.space_id))
+ return spaces.filter(s=>s.owner_id===user.id||joined.has(s.id))
 }
 export async function getSpace(spaceId){
  if(!live){const d=readDemo();const s=d.spaces.find(x=>x.id===spaceId);if(!s)return null;return {...s,materials:d.materials.filter(x=>x.space_id===spaceId).sort((a,b)=>a.position-b.position),can_edit:true}}
@@ -88,4 +92,22 @@ export async function releaseSpace(spaceId){ensureMember();if(!live){const d=rea
 export async function forkRelease(releaseId){ensureMember();if(!live){const d=readDemo();const r=d.releases.find(x=>x.id===releaseId);if(!r)throw new Error('Release not found');const src=d.spaces.find(x=>x.id===r.space_id);if(src?.visibility!=='public')throw new Error('Only public releases can be forked');const s={id:id(),owner_id:d.user.id,author_name:d.user.name,title:r.snapshot.title+' — fork',summary:r.snapshot.summary,cover_url:r.snapshot.cover_url,visibility:'private',parent_release_id:releaseId,updated_at:now()};d.spaces.unshift(s);r.snapshot.materials.forEach((m,i)=>d.materials.push({id:id(),space_id:s.id,...m,position:i+1,created_at:now()}));saveDemo();return s.id}
  return rpc('fork_release',{target_release_id:releaseId})}
 export async function inviteCollaborator(spaceId,email){ensureMember();if(!live){return {message:`Demo invitation noted for ${email}. Multi-user invitations require Supabase.`}}await rpc('invite_space_collaborator',{target_space_id:spaceId,invitee_email:email});return {message:'Collaborator added. They can now access the Space.'}}
+export async function listOperationLogs(spaceId){
+ if(!live)return readDemo().operation_logs.filter(log=>log.space_id===spaceId).sort((a,b)=>b.created_at.localeCompare(a.created_at))
+ return rest('operation_logs',`select=id,space_id,release_id,actor_id,title,details,created_at&space_id=eq.${encodeURIComponent(spaceId)}&order=created_at.desc&limit=100`)
+}
+export async function addOperationLog(spaceId, releaseId, values){
+ ensureMember()
+ const title=String(values.title||'').trim(),details=String(values.details||'').trim()
+ if(title.length<2||title.length>180||details.length>5000)throw new Error('Enter a title (2–180 characters) and details of at most 5000 characters.')
+ if(!releaseId)throw new Error('A released version is required to record operations.')
+ if(!live){
+  const d=readDemo(),s=d.spaces.find(s=>s.id===spaceId)
+  if(!s || !d.releases.some(r=>r.id===releaseId&&r.space_id===spaceId))throw new Error('The release does not belong to this Space.')
+  const log={id:id(),space_id:spaceId,release_id:releaseId,actor_id:d.user.id,title,details,created_at:now()}
+  d.operation_logs.unshift(log);saveDemo();return log
+ }
+ const rows=await rest('operation_logs','select=*',{method:'POST',prefer:'return=representation',body:{space_id:spaceId,release_id:releaseId,actor_id:user.id,title,details}})
+ return rows[0]
+}
 export function resetDemo(){demo=seed();saveDemo()}
