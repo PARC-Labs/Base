@@ -127,15 +127,30 @@ $$;
 create trigger materials_bump_space after insert or update or delete on public.materials
 for each row execute function private.bump_space_from_material();
 
--- Users may sign in only after a dashboard invitation; a new auth user is not a member.
+-- New email identities may verify an account, but only explicitly pre-approved
+-- addresses receive an active membership. Admission data is never exposed via REST.
+create table private.approved_member_emails (
+ email text primary key check (email = lower(btrim(email)) and length(email) between 3 and 320),
+ approved_at timestamptz not null default now()
+);
+revoke all on private.approved_member_emails from public, anon, authenticated;
+alter table private.approved_member_emails enable row level security;
+
 create function private.create_profile()
-returns trigger language plpgsql security definer set search_path='' as $$
+returns trigger language plpgsql security definer set search_path='' as $
+declare is_approved boolean;
 begin
+ select exists(
+  select 1 from private.approved_member_emails a
+  where a.email = lower(btrim(new.email))
+ ) into is_approved;
  insert into public.profiles(id,display_name) values(new.id,'Member') on conflict do nothing;
- insert into public.memberships(user_id,status) values(new.id,'pending') on conflict do nothing;
+ insert into public.memberships(user_id,status)
+ values(new.id,case when is_approved then 'active' else 'pending' end)
+ on conflict do nothing;
  return new;
 end;
-$$;
+$;
 create trigger auth_profile_created after insert on auth.users
 for each row execute function private.create_profile();
 
