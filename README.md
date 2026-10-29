@@ -7,7 +7,7 @@
 - Public Explore directory for published research Spaces.
 - Responsive, editorial-style interfaces for visual Grid, reading Document, structural Build and activity Operate views.
 - Private/public Spaces, image URL / link / note material, editable metadata and optional components and procedures.
-- Signed-in membership gate; invited accounts only. Accounts are **not** created automatically at sign-in.
+- Email-link sign-in: visitors can create a verified identity, but **only addresses preapproved by the institution receive active membership**. Others cannot access private Spaces.
 - Owner-authorised collaboration with existing active members (currently direct access grants, without acceptance or notifications).
 - Immutable releases and private forks of publicly released Spaces, with server-enforced lineage; append-only activity records referencing a released version.
 - RLS-backed access, owner checks and server-validated release/fork operations.
@@ -35,10 +35,15 @@ Do not reuse Applied State's production database.
 1. Create a separate Supabase project for Base.
 2. Apply `supabase/schema.sql` in Supabase SQL Editor to a new database. Inspect and test RLS before enabling actual membership.
 3. In Authentication → URL Configuration, set your deployment origin as Site URL and permitted redirect destination.
-4. Configure email authentication (magic links). Use production SMTP before onboarding real members. Test same-browser callback.
+4. Configure email authentication (magic links). In **Authentication → URL Configuration**, set Site URL to `https://parc-labs.github.io/Base/` and add that exact URL as an allowed Redirect URL. Use production SMTP before onboarding real members. Test same-browser callback.
 5. In `src/config.js`, enter only your **public** Supabase URL and **public anon/publishable key**. Never put a service role key or credentials in browser source.
-6. Create or invite accounts manually in Authentication → Users. The `auth_profile_created` trigger creates a pending membership row.
-7. Verify the identity of the intended member. Activate their access in SQL Editor:
+6. Preapprove member addresses privately using a trusted administrator's SQL Editor session:
+   ```sql
+   insert into private.approved_member_emails(email)
+   values (lower('invited.member@example.com')) on conflict do nothing;
+   ```
+   Never commit real email addresses to the public repository. The email-link form can create an Auth identity. The database trigger grants active membership only to preapproved addresses; all other users remain `pending`.
+7. For a member who registered **before** preapproval, confirm ownership in **Authentication → Users** and activate manually:
    ```sql
    update public.memberships set status = 'active'
    where user_id = '<VERIFIED_AUTH_USER_UUID>';
@@ -48,7 +53,7 @@ Do not reuse Applied State's production database.
 
 ### Authentication
 
-The browser calls Supabase GoTrue OTP and handles the standard implicit magic-link callback (`#access_token=…`). This first-release client stores the session in localStorage and refreshes expired tokens. Use robust production hardening before accepting sensitive research: strong CSP, session management, token-storage threat assessment, verified redirect destinations, and rate limiting. For production with confidential material, migrating to a well-maintained Supabase Auth client with a pinned lockfile is recommended.
+The browser calls Supabase GoTrue OTP and handles the standard implicit magic-link callback (`#access_token=…`). OTP creates an **identity**, not a membership. The access gate is enforced by the database even if the UI is bypassed. This first-release client stores the session in localStorage and refreshes expired tokens. Use robust production hardening before accepting sensitive research: strong CSP, session management, token-storage threat assessment, verified redirect destinations, and rate limiting. For production with confidential material, migrating to a well-maintained Supabase Auth client with a pinned lockfile is recommended.
 
 ### Security
 
@@ -79,9 +84,9 @@ The visual system is deliberately quiet: editorial typography, spacious grids, m
 
 The application lives in `PARC-Labs/Base`, separate from Applied State. It can be served as a static site. The repository includes a GitHub Actions Pages deployment workflow and supports repository-subpath URLs, so Vercel is not required.
 
-**GitHub Pages is not yet enabled** on the private repository. Go to the repository's Settings → Pages and choose GitHub Actions for deployment. Private repository Pages availability depends on GitHub plan and organization settings. The preview only stores changes in the visitor's browser until Base has a dedicated Supabase project.
+GitHub Pages is enabled at `https://parc-labs.github.io/Base/`. The repository is **public**, so never commit API secrets or real membership email addresses. Working data now persists in the separate Base Supabase project, subject to membership checks and RLS. When no Supabase configuration is provided, local single-browser preview remains available.
 
-The Supabase schema has not yet been applied to a live Base project. Test row-level security and three-account access isolation before admitting any real users. No new paid infrastructure should be provisioned without account owner approval.
+The Supabase schema is installed in Base's dedicated free project (`niotfttsjntivmpizrnc`), and the public publishable key is in `src/config.js`. The preapproved-email trigger is installed in a private schema. Test row-level security and three-account access isolation before admitting any real users. No new paid infrastructure should be provisioned without account owner approval.
 
 ## Repository
 
