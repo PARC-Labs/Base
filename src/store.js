@@ -35,9 +35,9 @@ let demo
 function readDemo(){if(demo)return demo;try{demo=JSON.parse(localStorage.getItem(DEMO_KEY)||'null')}catch{};if(!demo){demo=seed();saveDemo()}demo.operation_logs ||= [];return demo}
 function saveDemo(){localStorage.setItem(DEMO_KEY,JSON.stringify(demo))}
 let session=null, user=null, isMember=false
-function bearer(){return session?.access_token || config.supabaseAnonKey}
+function bearer(){return session?.access_token || (config.supabaseAnonKey.startsWith('eyJ')?config.supabaseAnonKey:null)}
 async function request(path,{method='GET',body,prefer}={}){
- const r=await fetch(config.supabaseUrl.replace(/\/$/,'')+path,{method,headers:{apikey:config.supabaseAnonKey,Authorization:`Bearer ${bearer()}`,...(body?{'Content-Type':'application/json'}:{}),...(prefer?{Prefer:prefer}:{})},body:body===undefined?undefined:JSON.stringify(body)})
+ const r=await fetch(config.supabaseUrl.replace(/\/$/,'')+path,{method,headers:{apikey:config.supabaseAnonKey,...(bearer()?{Authorization:`Bearer ${bearer()}`} : {}),...(body?{'Content-Type':'application/json'}:{}),...(prefer?{Prefer:prefer}:{})},body:body===undefined?undefined:JSON.stringify(body)})
  const text=await r.text();let result
  try{result=text?JSON.parse(text):null}catch{result=text}
  if(!r.ok)throw new Error(result?.message||result?.error_description||result?.hint||`Request failed (${r.status})`)
