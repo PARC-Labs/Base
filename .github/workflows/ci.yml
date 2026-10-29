@@ -1,0 +1,20 @@
+name: Base checks
+on:
+  push:
+    branches: [main, feature/base-working-systems]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: JavaScript syntax
+        run: npm run check
+      - name: Workflow tests
+        run: npm test
