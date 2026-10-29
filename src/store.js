@@ -15,20 +15,20 @@ const id = () => {
 }
 const demoOwner = '00000000-0000-4000-8000-000000000001'
 const samples = [
-  { id:'00000000-0000-4000-8000-000000000101', title:'Temporary Structures',summary:'Lightweight architectures, temporary inhabitation and modular constructions.',cover_url:'/assets/study-1.svg',author_name:'Studio Field',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null },
-  { id:'00000000-0000-4000-8000-000000000102', title:'Material Ecologies',summary:'Living materials, ceramic processes and the ecology of making.',cover_url:'/assets/study-2.svg',author_name:'L. Hart',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null },
-  { id:'00000000-0000-4000-8000-000000000103', title:'Marine Instruments',summary:'Low-cost sensing, open ocean instrumentation and situated observation.',cover_url:'/assets/study-3.svg',author_name:'Field Laboratory',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null },
-  { id:'00000000-0000-4000-8000-000000000104', title:'Spatial Protocols',summary:'Processes, rules and interfaces for the organisation of shared environments.',cover_url:'/assets/study-4.svg',author_name:'Applied Research',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null }
+  { id:'00000000-0000-4000-8000-000000000101', title:'Temporary Structures',summary:'Lightweight architectures, temporary inhabitation and modular constructions.',cover_url:'assets/study-1.svg',author_name:'Studio Field',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null },
+  { id:'00000000-0000-4000-8000-000000000102', title:'Material Ecologies',summary:'Living materials, ceramic processes and the ecology of making.',cover_url:'assets/study-2.svg',author_name:'L. Hart',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null },
+  { id:'00000000-0000-4000-8000-000000000103', title:'Marine Instruments',summary:'Low-cost sensing, open ocean instrumentation and situated observation.',cover_url:'assets/study-3.svg',author_name:'Field Laboratory',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null },
+  { id:'00000000-0000-4000-8000-000000000104', title:'Spatial Protocols',summary:'Processes, rules and interfaces for the organisation of shared environments.',cover_url:'assets/study-4.svg',author_name:'Applied Research',visibility:'public',owner_id:demoOwner,updated_at:now(),parent_release_id:null }
 ]
 const demoMaterials = [
- {space_id:samples[0].id,type:'image',title:'Canopy geometry',url:'/assets/study-1.svg',body:'Form, tension and temporary assembly.',position:1},
+ {space_id:samples[0].id,type:'image',title:'Canopy geometry',url:'assets/study-1.svg',body:'Form, tension and temporary assembly.',position:1},
  {space_id:samples[0].id,type:'note',title:'Design premise',url:null,body:'A family of easily transported structures with few bespoke connections and minimal permanent foundations.',position:2},
  {space_id:samples[0].id,type:'link',title:'Research reference',url:'https://www.are.na/',body:'Shared sources on temporary structures and material culture.',position:3},
- {space_id:samples[1].id,type:'image',title:'Material study 01',url:'/assets/study-2.svg',body:'Surface, repetition, form.',position:1},
+ {space_id:samples[1].id,type:'image',title:'Material study 01',url:'assets/study-2.svg',body:'Surface, repetition, form.',position:1},
  {space_id:samples[1].id,type:'note',title:'Working observations',url:null,body:'How might biological and geological time become legible through material transformation?',position:2},
- {space_id:samples[2].id,type:'image',title:'Observation system',url:'/assets/study-3.svg',body:'Diagram of a marine sensing installation.',position:1},
+ {space_id:samples[2].id,type:'image',title:'Observation system',url:'assets/study-3.svg',body:'Diagram of a marine sensing installation.',position:1},
  {space_id:samples[2].id,type:'note',title:'Open questions',url:null,body:'Develop reproducible instrument designs with transparent calibrations and public records of uncertainty.',position:2},
- {space_id:samples[3].id,type:'image',title:'Spatial form',url:'/assets/study-4.svg',body:'Geometry and spatial organisation.',position:1}
+ {space_id:samples[3].id,type:'image',title:'Spatial form',url:'assets/study-4.svg',body:'Geometry and spatial organisation.',position:1}
 ]
 function seed(){return {spaces:samples.map(s=>({...s})),materials:demoMaterials.map(x=>({...x,id:id(),created_at:now()})),releases:[],collaborators:[],operation_logs:[],user:{id:demoOwner,email:'founder@base.demo',name:'Founding participant'},member:true}}
 let demo
