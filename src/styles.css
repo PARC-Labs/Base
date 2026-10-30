@@ -29,3 +29,25 @@ h1,h2,h3,p,figure{margin:0}.frame{display:grid;grid-template-rows:auto minmax(0,
 .field input[type="file"]::file-selector-button{font:inherit;font-size:12px;text-transform:uppercase;background:#fff;border:1px solid #aaa;padding:10px 12px;margin-right:14px;cursor:pointer;}
 [data-media-dropzone].uploading{outline:2px dashed currentColor;outline-offset:10px;opacity:.5;pointer-events:none;}
 .material a.source-link{overflow-wrap:anywhere;}
+
+
+/* Connections & retrieval remain deliberately quieter than the material itself. */
+.material-searchbar{display:flex;align-items:center;flex-wrap:wrap;gap:12px 22px;border-bottom:1px solid var(--rule);padding:26px 0 15px}
+.material-searchbar label{white-space:nowrap}
+.material-searchbar input{font:inherit;color:var(--ink);background:transparent;border:0;border-bottom:1px solid var(--rule);min-width:160px;flex:1;padding:8px 0;outline-offset:4px}
+.material-searchbar input:focus{border-color:var(--ink)}
+.material-searchbar #material-search-count{margin-left:auto;white-space:nowrap}
+.material-searchbar + .materials,.material-searchbar + .document-view{padding-top:34px}
+.material-no-results{padding:50px 0}
+.connected-spaces{margin-top:95px;padding-top:20px;border-top:1px solid var(--rule)}
+.connected-spaces .section-head{margin-top:0}
+.connected-spaces .section-head h2{font-weight:400}
+.connected-intro{margin:18px 0 46px;max-width:650px;line-height:1.7}
+.connection-heading{font-size:11px;letter-spacing:.07em;font-weight:400;color:var(--muted);margin:42px 0 12px}
+.connected-item{display:flex;gap:20px;align-items:start;justify-content:space-between;padding:22px 0;border-bottom:1px solid var(--rule)}
+.connected-title{font-size:clamp(16px,2vw,20px);text-decoration:underline;text-underline-offset:3px}
+.connected-item .micro{margin:12px 0 0}
+.connected-note{margin:13px 0 0;max-width:560px;line-height:1.5}
+.connection-add{margin-top:32px}
+[hidden]{display:none!important}
+@media(max-width:480px){.material-searchbar{gap:8px 12px}.material-searchbar label{width:100%}.material-searchbar input{flex:1 1 100%}.material-searchbar #material-search-count{margin-left:0}}

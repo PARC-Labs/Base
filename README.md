@@ -7,6 +7,7 @@
 - Public Explore directory for published research Spaces.
 - Responsive, editorial-style interfaces for visual Grid, reading Document, structural Build and activity Operate views.
 - Private/public Spaces, native image and PDF uploads, image URLs, links, notes, editable metadata and optional components and procedures.
+- Connected Spaces: one-way links with automatically visible backlinks, original ownership preserved and privacy checked at both ends; in-Space material search in Grid and Document.
 - Free-tier private Supabase Storage bucket with Space-scoped file permissions, signed temporary viewing links and browser-local WebP compression.
 - Email-link sign-in: visitors can create a verified identity, but **only addresses preapproved by the institution receive active membership**. Others cannot access private Spaces.
 - Owner-authorised collaboration with existing active members (currently direct access grants, without acceptance or notifications).
@@ -52,6 +53,14 @@ Do not reuse Applied State's production database.
 8. Update `applicationsEmail` in `src/config.js`, or leave the expression-of-interest route explicitly closed.
 9. Deploy to any HTTPS static host (GitHub Pages requires base-path configuration, unless custom domain/subdomain is used; Vercel/Netlify root deployment works without modifications).
 
+### Connected Spaces
+
+Open any editable Space and use **+ CONNECT SPACE** under *Connected Spaces*. Select another public or accessible private Space and optionally write a reason for the connection. The target stays independent: later edits appear automatically in the linked card, rather than being duplicated. Each target Space shows the backlink under *Referenced by* when the viewer has permission to read both Spaces. Source editors can remove their own connections; the target itself is unaffected. Private identities, Space titles and notes are never intentionally revealed through a public reference: the table's Row Level Security checks readability of both ends on every request. Connection records are not yet included in immutable release snapshots.
+
+Search within a Space's Grid or Document by typing in **Find in Space**. The filter matches material titles, types, written content and source links without extra network requests.
+
+For repeatable deployment, apply `supabase/migrations/20261030_base_space_connections.sql` on top of the existing Base schema. It has already been applied to the connected Base project.
+
 ### Native media / free limits
 
 In an editable Space select **+ UPLOAD**, choose an image or PDF, optionally add a title and caption, and submit. Dragging a file onto the material grid also works on supported browsers. JPEG/PNG/WebP images are resized in the user's browser to at most 1600 px per side and encoded as WebP, normally no more than 2 MB. Source images are limited to 12 MB and 45 million decoded pixels; PDFs are limited to 5 MB and their PDF header is checked. The Storage bucket itself rejects objects over 5 MB. No paid transformation API is used.
@@ -72,7 +81,7 @@ The `private` schema must **not** be exposed through PostgREST. Keep only `publi
 
 ### Data model
 
-`profiles`, `memberships`, `spaces`, `space_collaborators`, `materials`, `releases`, `operation_logs`.
+`profiles`, `memberships`, `spaces`, `space_collaborators`, `space_links`, `materials`, `releases`, `operation_logs`.
 
 A **Space** is a working collection. A **Release** is an immutable JSON snapshot of its material. A **Fork** creates a new private Space from a public release and records `parent_release_id`. Published Spaces can still be edited after a release, without mutating that snapshot. Components and procedures are structured research material; operational activity references an immutable release. The database disallows clients from forging fork ancestry through normal Space inserts/updates.
 
@@ -82,7 +91,7 @@ The visual system is deliberately quiet: editorial typography, spacious grids, m
 
 ## Next development milestones
 
-1. Extend native upload with reusable media blocks, cover images, upload quota dashboard and lifecycle cleanup.
+1. Reusable material references between Spaces, nested collections and a more fluid capture experience.
 2. Member profile editing, invitation acceptance and notification delivery.
 3. Better material capture and reordering, rich previews, PDF support and public search.
 4. Side-by-side release comparison, explicit reuse licences and fork provenance UI.

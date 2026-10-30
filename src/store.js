@@ -33,9 +33,9 @@ const demoMaterials = [
  {space_id:samples[2].id,type:'note',title:'Open questions',url:null,body:'Develop reproducible instrument designs with transparent calibrations and public records of uncertainty.',position:2},
  {space_id:samples[3].id,type:'image',title:'Spatial form',url:'assets/study-4.svg',body:'Geometry and spatial organisation.',position:1}
 ]
-function seed(){return {spaces:samples.map(s=>({...s})),materials:demoMaterials.map(x=>({...x,id:id(),created_at:now()})),releases:[],collaborators:[],operation_logs:[],user:{id:demoOwner,email:'founder@base.demo',name:'Founding participant'},member:true}}
+function seed(){return {spaces:samples.map(s=>({...s})),materials:demoMaterials.map(x=>({...x,id:id(),created_at:now()})),releases:[],collaborators:[],operation_logs:[],space_links:[],user:{id:demoOwner,email:'founder@base.demo',name:'Founding participant'},member:true}}
 let demo
-function readDemo(){if(demo)return demo;try{demo=JSON.parse(localStorage.getItem(DEMO_KEY)||'null')}catch{};if(!demo){demo=seed();saveDemo()}demo.operation_logs ||= [];return demo}
+function readDemo(){if(demo)return demo;try{demo=JSON.parse(localStorage.getItem(DEMO_KEY)||'null')}catch{};if(!demo){demo=seed();saveDemo()}demo.operation_logs ||= [];demo.space_links ||= [];return demo}
 function saveDemo(){localStorage.setItem(DEMO_KEY,JSON.stringify(demo))}
 let session=null, user=null, isMember=false, authIssue=''
 function bearer(){return session?.access_token || (config.supabaseAnonKey.startsWith('eyJ')?config.supabaseAnonKey:null)}
@@ -99,6 +99,68 @@ async function signedMediaUrl(path){
   new URL(base+(link.startsWith('/storage/v1/')?link:'/storage/v1/'+link.replace(/^\//,'')))
  if(full.origin!==new URL(base).origin)return null
  return full.href
+}
+// Linked Spaces are references rather than copies: a change to the target remains
+// visible everywhere it is linked. Database RLS protects both ends of each link.
+export async function listSpaceConnections(spaceId){
+ if(!live){
+  const data=readDemo(),byId=new Map(data.spaces.map(s=>[s.id,s]))
+  const links=data.space_links.filter(l=>l.source_space_id===spaceId||l.target_space_id===spaceId)
+  return {
+   outgoing:links.filter(l=>l.source_space_id===spaceId).map(l=>({...l,related:byId.get(l.target_space_id)})).filter(l=>l.related),
+   incoming:links.filter(l=>l.target_space_id===spaceId).map(l=>({...l,related:byId.get(l.source_space_id)})).filter(l=>l.related)
+  }
+ }
+ const matches=await rest('space_links',
+  `select=id,source_space_id,target_space_id,note,created_at&or=(source_space_id.eq.${encodeURIComponent(spaceId)},target_space_id.eq.${encodeURIComponent(spaceId)})&order=created_at.desc&limit=100`)
+ if(!matches.length)return {outgoing:[],incoming:[]}
+ const ids=[...new Set(matches.flatMap(l=>[l.source_space_id,l.target_space_id]))]
+ const spaces=await rest('spaces',
+  `select=id,title,summary,visibility,author_name&id=in.(${ids.map(encodeURIComponent).join(',')})`)
+ const byId=new Map(spaces.map(s=>[s.id,s]))
+ return {
+  outgoing:matches.filter(l=>l.source_space_id===spaceId)
+   .map(l=>({...l,related:byId.get(l.target_space_id)})).filter(l=>l.related),
+  incoming:matches.filter(l=>l.target_space_id===spaceId)
+   .map(l=>({...l,related:byId.get(l.source_space_id)})).filter(l=>l.related)
+ }
+}
+export async function listLinkableSpaces(spaceId){
+ if(!me().member)return []
+ const [mine,publicSpaces]=await Promise.all([listSpaces('mine'),listSpaces('explore')])
+ const spaces=new Map([...publicSpaces,...mine].map(s=>[s.id,s]))
+ spaces.delete(spaceId)
+ return [...spaces.values()].sort((a,b)=>a.title.localeCompare(b.title))
+}
+export async function connectSpace(sourceId,targetId,note=''){
+ ensureMember()
+ const description=String(note||'').trim()
+ if(description.length>500)throw new Error('Connection note must be 500 characters or less.')
+ if(sourceId===targetId)throw new Error('A Space cannot link to itself.')
+ if(!live){
+  const d=readDemo()
+  if(!d.spaces.some(s=>s.id===sourceId)||!d.spaces.some(s=>s.id===targetId))
+   throw new Error('Both Spaces must exist and be accessible.')
+  if(d.space_links.some(l=>l.source_space_id===sourceId&&l.target_space_id===targetId))
+   throw new Error('These Spaces are already connected.')
+  const link={id:id(),source_space_id:sourceId,target_space_id:targetId,note:description,created_at:now()}
+  d.space_links.push(link);saveDemo();return link
+ }
+ const rows=await rest('space_links','select=*',{
+  method:'POST',prefer:'return=representation',
+  body:{source_space_id:sourceId,target_space_id:targetId,note:description}
+ })
+ if(!rows?.length)throw new Error('Could not connect these Spaces.')
+ return rows[0]
+}
+export async function disconnectSpace(linkId){
+ ensureMember()
+ if(!live){
+  const d=readDemo()
+  d.space_links=d.space_links.filter(l=>l.id!==linkId)
+  saveDemo();return
+ }
+ await rest('space_links',`id=eq.${encodeURIComponent(linkId)}`,{method:'DELETE'})
 }
 export async function getSpace(spaceId){
  if(!live){const d=readDemo();const s=d.spaces.find(x=>x.id===spaceId);if(!s)return null;return {...s,materials:d.materials.filter(x=>x.space_id===spaceId).sort((a,b)=>a.position-b.position),can_edit:true}}
