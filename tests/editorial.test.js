@@ -26,7 +26,7 @@ test('Explore is a minimal index without marketing sections',async()=>{
  const html=await goto('explore')
  assert.match(html,/class="collection-page"/)
  assert.match(html,/<h1>EXPLORE<\/h1>/)
- assert.match(html,/class="space-grid"/)
+ assert.match(html,/class="space-index"/)
  assert.doesNotMatch(html,/Working together, independently/)
  assert.doesNotMatch(html,/BASE \/ EXPERIMENTAL PRACTICE/)
  assert.doesNotMatch(html,/footer-note/)
