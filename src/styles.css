@@ -23,3 +23,9 @@ h1,h2,h3,p,figure{margin:0}.frame{display:grid;grid-template-rows:auto minmax(0,
 .system-empty{margin:35px 0;line-height:1.6}
 .tabbar{overflow-x:auto;max-width:100%;white-space:nowrap;scrollbar-width:thin}
 @media(max-width:767px){.system-view{padding-top:32px}.system-entry h4{font-size:22px}.tabbar{column-gap:20px}}
+
+/* Native media: quiet affordances, matching Base's editorial palette. */
+.field input[type="file"]{padding:14px 10px;border:1px solid var(--rule, #d9d9d9);width:100%;max-width:100%;background:transparent;color:inherit;box-sizing:border-box;}
+.field input[type="file"]::file-selector-button{font:inherit;font-size:12px;text-transform:uppercase;background:#fff;border:1px solid #aaa;padding:10px 12px;margin-right:14px;cursor:pointer;}
+[data-media-dropzone].uploading{outline:2px dashed currentColor;outline-offset:10px;opacity:.5;pointer-events:none;}
+.material a.source-link{overflow-wrap:anywhere;}

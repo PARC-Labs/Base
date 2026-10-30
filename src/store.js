@@ -1,9 +1,12 @@
 import { config } from './config.js'
+import {prepareMedia} from './media.js'
 
 const live = Boolean(config.supabaseUrl && config.supabaseAnonKey) && !(typeof process !== 'undefined' && process.env.BASE_PREVIEW_TEST === '1')
 export const isLive = live
 const DEMO_KEY = 'base_v1_demo_20261028'
 const SESSION_KEY = 'base_v1_session'
+const MEDIA_BUCKET = 'base-media'
+const MEDIA_PATH = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(webp|pdf)$/
 const now = () => new Date().toISOString()
 const id = () => {
  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID()
@@ -86,12 +89,27 @@ export async function listSpaces(scope='explore'){
  const joined=new Set(collaborations.map(c=>c.space_id))
  return spaces.filter(s=>s.owner_id===user.id||joined.has(s.id))
 }
+async function signedMediaUrl(path){
+ if(!MEDIA_PATH.test(String(path||'')))return null
+ const data=await request('/storage/v1/object/sign/'+MEDIA_BUCKET+'/'+path,{method:'POST',body:{expiresIn:3600}})
+ const link=data?.signedURL||data?.signedUrl
+ if(!link)return null
+ const base=config.supabaseUrl.replace(/\/$/,'')
+ const full=link.startsWith('http')?new URL(link):
+  new URL(base+(link.startsWith('/storage/v1/')?link:'/storage/v1/'+link.replace(/^\//,'')))
+ if(full.origin!==new URL(base).origin)return null
+ return full.href
+}
 export async function getSpace(spaceId){
  if(!live){const d=readDemo();const s=d.spaces.find(x=>x.id===spaceId);if(!s)return null;return {...s,materials:d.materials.filter(x=>x.space_id===spaceId).sort((a,b)=>a.position-b.position),can_edit:true}}
  const matches=await rest('spaces',`select=*&id=eq.${encodeURIComponent(spaceId)}&limit=1`)
  const s=matches[0];if(!s)return null
  const materials=await rest('materials',`select=*&space_id=eq.${encodeURIComponent(spaceId)}&order=position.asc`)
- return {...s,materials,can_edit:!!user&&(s.owner_id===user.id||await isCollaborator(spaceId))}
+ const resolved=await Promise.all(materials.map(async m=>{
+  if(!m.storage_path)return m
+  try{return {...m,asset_url:await signedMediaUrl(m.storage_path)}}catch{return {...m,asset_url:null}}
+ }))
+ return {...s,materials:resolved,can_edit:!!user&&(s.owner_id===user.id||await isCollaborator(spaceId))}
 }
 async function isCollaborator(spaceId){const rows=await rest('space_collaborators',`select=user_id&space_id=eq.${encodeURIComponent(spaceId)}&user_id=eq.${encodeURIComponent(user.id)}&limit=1`);return !!rows.length}
 export async function createSpace(values){ensureMember();if(!live){const d=readDemo();const s={id:id(),owner_id:d.user.id,author_name:d.user.name,...values,cover_url:values.cover_url||null,updated_at:now(),parent_release_id:null};d.spaces.unshift(s);saveDemo();return s}
@@ -100,6 +118,47 @@ export async function updateSpace(spaceId,values){ensureMember();if(!live){const
  const rows=await rest('spaces',`id=eq.${encodeURIComponent(spaceId)}&select=*`,{method:'PATCH',prefer:'return=representation',body:values});if(!rows?.length)throw new Error('Space not editable');return rows[0]}
 export async function addMaterial(spaceId,values){ensureMember();if(!live){const d=readDemo();const m={...values,space_id:spaceId,id:id(),position:d.materials.filter(x=>x.space_id===spaceId).length+1,created_at:now()};d.materials.push(m);saveDemo();return m}
  const rows=await rest('materials','select=*',{method:'POST',prefer:'return=representation',body:{space_id:spaceId,...values}});return rows[0]}
+async function uploadObject(path,blob,mime){
+ if(!session?.access_token)throw new Error('Sign in to upload files.')
+ const response=await fetch(config.supabaseUrl.replace(/\/$/,'')+'/storage/v1/object/'+MEDIA_BUCKET+'/'+path,{
+  method:'POST',
+  headers:{apikey:config.supabaseAnonKey,Authorization:'Bearer '+session.access_token,
+   'Content-Type':mime,'cache-control':'3600','x-upsert':'false'},
+  body:blob
+ })
+ const text=await response.text()
+ let result;try{result=JSON.parse(text)}catch{result=null}
+ if(!response.ok)throw new Error(result?.message||result?.error||'Media upload failed ('+response.status+').')
+ return result
+}
+async function deleteObject(path){
+ const response=await fetch(config.supabaseUrl.replace(/\/$/,'')+'/storage/v1/object/'+MEDIA_BUCKET+'/'+path,{
+  method:'DELETE',
+  headers:{apikey:config.supabaseAnonKey,Authorization:'Bearer '+session.access_token}
+ })
+ if(!response.ok)throw new Error('Could not clean up failed upload.')
+}
+export async function addUploadedMaterial(spaceId,file,values={}){
+ ensureMember()
+ if(!live)throw new Error('Native file uploads require a connected Supabase project.')
+ const space=await getSpace(spaceId)
+ if(!space?.can_edit)throw new Error('You cannot upload to this Space.')
+ const prepared=await prepareMedia(file)
+ const path=spaceId+'/'+id()+'.'+prepared.extension
+ await uploadObject(path,prepared.blob,prepared.mime)
+ try{
+  return await addMaterial(spaceId,{
+   type:prepared.type,
+   title:String(values.title||'').trim().slice(0,180)||'Untitled material',
+   url:null,
+   storage_path:path,
+   body:String(values.body||'').trim()||null
+  })
+ }catch(error){
+  try{await deleteObject(path)}catch{}
+  throw error
+ }
+}
 export async function removeMaterial(materialId){ensureMember();if(!live){const d=readDemo();d.materials=d.materials.filter(m=>m.id!==materialId);saveDemo();return}await rest('materials',`id=eq.${encodeURIComponent(materialId)}`,{method:'DELETE'})}
 export async function listReleases(spaceId){if(!live)return readDemo().releases.filter(x=>x.space_id===spaceId).sort((a,b)=>b.version-a.version);return rest('releases',`select=id,space_id,version,created_at&space_id=eq.${encodeURIComponent(spaceId)}&order=version.desc`)}
 export async function releaseSpace(spaceId){ensureMember();if(!live){const d=readDemo();const s=d.spaces.find(x=>x.id===spaceId);if(!s)throw new Error('Unknown Space');const previous=d.releases.filter(x=>x.space_id===spaceId);const release={id:id(),space_id:spaceId,version:previous.length+1,created_at:now(),snapshot:{title:s.title,summary:s.summary,cover_url:s.cover_url,author_name:s.author_name,materials:d.materials.filter(m=>m.space_id===spaceId).map(m=>({type:m.type,title:m.title,url:m.url,body:m.body}))}};d.releases.push(release);saveDemo();return release}
