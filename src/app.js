@@ -1,6 +1,6 @@
 import * as db from './store.js'
 import {config} from './config.js'
-import {mediaTITLE} from './media.js'
+import {mediaTitle} from './media.js'
 import {escapeHtml as e,safeUrl,shortDate} from './utils.js'
 
 const root=document.getElementById('app')
