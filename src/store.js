@@ -43,7 +43,11 @@ async function request(path,{method='GET',body,prefer}={}){
  const r=await fetch(config.supabaseUrl.replace(/\/$/,'')+path,{method,headers:{apikey:config.supabaseAnonKey,...(bearer()?{Authorization:`Bearer ${bearer()}`} : {}),...(body?{'Content-Type':'application/json'}:{}),...(prefer?{Prefer:prefer}:{})},body:body===undefined?undefined:JSON.stringify(body)})
  const text=await r.text();let result
  try{result=text?JSON.parse(text):null}catch{result=text}
- if(!r.ok)throw new Error(result?.message||result?.error_description||result?.hint||`Request failed (${r.status})`)
+ if(!r.ok){
+  const error=new Error(result?.message||result?.error_description||result?.hint||`Request failed (${r.status})`)
+  error.code=result?.code
+  throw error
+ }
  return result
 }
 const rest=(table,query='',opts={})=>request(`/rest/v1/${table}${query?`?${query}`:''}`,opts)
@@ -85,11 +89,16 @@ export async function registerEarlyAccess(values={}){
  if(intendedUse.length>280)throw new Error('Your response must be 280 characters or fewer.')
  const rawSource=String(values.source||'direct').toLowerCase()
  const source=/^[a-z0-9_-]{1,40}$/.test(rawSource)?rawSource:'direct'
- await rest('early_access_signups','',{
-  method:'POST',
-  prefer:'resolution=ignore-duplicates,return=minimal',
-  body:{email,practice,intended_use:intendedUse,source,opt_in:true}
- })
+ try{
+  await rest('early_access_signups','',{
+   method:'POST',prefer:'return=minimal',
+   body:{email,practice,intended_use:intendedUse,source,opt_in:true}
+  })
+ }catch(error){
+  // A duplicate email should have the same public confirmation as a new one.
+  // Never grant anonymous SELECT access to make an upsert work.
+  if(error.code!=='23505')throw error
+ }
  return true
 }
 // Requests are write-only and reviewed manually; supplying an address alone
