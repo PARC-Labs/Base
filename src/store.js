@@ -92,6 +92,20 @@ export async function registerEarlyAccess(values={}){
  })
  return true
 }
+// Requests are write-only and reviewed manually; supplying an address alone
+// does not authorise its deletion or disclosure to the requester.
+export async function requestEarlyAccessPrivacy(values={}){
+ if(!live)throw new Error('Privacy requests are available on the live Base site.')
+ const email=String(values.email||'').trim().toLowerCase()
+ if(email.length>254||! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+  throw new Error('Enter a valid email address.')
+ const kind=String(values.requestType||'')
+ if(!['withdraw','access','correct'].includes(kind))throw new Error('Choose a request type.')
+ await rest('early_access_privacy_requests','',{
+  method:'POST',prefer:'return=minimal',body:{email,request_type:kind}
+ })
+ return true
+}
 export async function signIn(email){
  if(!live)return
  authIssue=''
