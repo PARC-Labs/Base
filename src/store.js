@@ -67,6 +67,31 @@ async function bootAuth(){
 export async function init(){await bootAuth()}
 export function authErrorMessage(){return authIssue}
 export function me(){if(!live){const d=readDemo();return {user:d.user,member:d.member,demo:true}}return {user,member:isMember,demo:false}}
+// Public expression of interest. This does not create an Auth user or membership.
+// Signups are insert-only; even signed-in users cannot retrieve email addresses.
+const earlyAccessPractices=new Set([
+ 'unspecified','artist','designer','architect','researcher',
+ 'technologist','maker','student','enthusiast','other'
+])
+export async function registerEarlyAccess(values={}){
+ if(!live)throw new Error('Early access registration is available on the live Base site.')
+ const email=String(values.email||'').trim().toLowerCase()
+ if(email.length>254||! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+  throw new Error('Enter a valid email address.')
+ if(values.consent!==true)throw new Error('Please consent to receive early-access updates.')
+ const practice=String(values.practice||'unspecified')
+ if(!earlyAccessPractices.has(practice))throw new Error('Choose a valid practice.')
+ const intendedUse=String(values.intendedUse||'').trim()
+ if(intendedUse.length>280)throw new Error('Your response must be 280 characters or fewer.')
+ const rawSource=String(values.source||'direct').toLowerCase()
+ const source=/^[a-z0-9_-]{1,40}$/.test(rawSource)?rawSource:'direct'
+ await rest('early_access_signups','',{
+  method:'POST',
+  prefer:'resolution=ignore-duplicates,return=minimal',
+  body:{email,practice,intended_use:intendedUse,source,opt_in:true}
+ })
+ return true
+}
 export async function signIn(email){
  if(!live)return
  authIssue=''
