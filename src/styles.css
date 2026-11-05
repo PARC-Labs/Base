@@ -143,3 +143,23 @@ h1,h2,h3,p,figure{margin:0}.frame{display:grid;grid-template-rows:auto minmax(0,
  .space-grid .card-name{font-size:var(--text-sm)}
  .tabbar{gap:20px}
 }
+
+
+/* Base early-access: quiet utility form in Applied State's typographic system. */
+.site-header .header-access{margin-left:auto;white-space:nowrap;font-size:var(--text-sm)}
+.early-access-page .utility-copy>p:first-child{max-width:40ch}
+.early-access-page .utility-copy>p+ p,.privacy-page .utility-copy>p+ p{margin-top:1.1em}
+.early-access-page .utility-copy>form{margin-top:clamp(44px,8vh,94px)}
+.early-access-page .field,.privacy-page .field{margin:28px 0}
+.early-access-page .field input,.early-access-page .field textarea,.early-access-page .field select,
+.privacy-page .field input,.privacy-page .field select{display:block;width:100%;background:transparent;border:0;border-bottom:1px solid var(--ink);padding:9px 0;min-height:42px;font-size:var(--text)}
+.early-access-page .field textarea{min-height:78px;resize:vertical}
+.early-access-page .field label,.privacy-page .field label{display:block;font-size:var(--text-xs);letter-spacing:.03em;color:var(--muted);margin-bottom:12px}
+.early-consent{display:flex;gap:13px;align-items:flex-start;margin-top:42px;font-size:var(--text-sm);line-height:1.55;max-width:56ch;cursor:pointer}
+.early-consent input{flex:0 0 auto;appearance:auto;width:17px;height:17px;margin:2px 0 0;accent-color:var(--ink)}
+.early-access-page .form-actions,.privacy-page .form-actions{margin-top:37px}
+.early-small{margin-top:26px!important;font-size:var(--text-xs);line-height:1.5;color:var(--muted)}
+.early-small a{text-decoration:underline}
+.form-trap{position:absolute!important;left:-9999px!important;width:1px!important;height:1px!important;overflow:hidden!important}
+.privacy-page .utility-copy>form{margin-top:50px}
+@media(max-width:767px){.early-consent{margin-top:30px}}
