@@ -5,6 +5,7 @@
 ## What's included
 
 - Public Explore directory for published research Spaces.
+- Public opt-in early-access registration, tracked in a separate write-only Supabase table without creating accounts; privacy request route for withdrawal/access/correction.
 - Responsive, editorial-style interfaces for visual Grid, reading Document, structural Build and activity Operate views.
 - Private/public Spaces, native image and PDF uploads, image URLs, links, notes, editable metadata and optional components and procedures.
 - Connected Spaces: one-way links with automatically visible backlinks, original ownership preserved and privacy checked at both ends; in-Space material search in Grid and Document.
@@ -15,7 +16,7 @@
 - RLS-backed access, owner checks and server-validated release/fork operations.
 - Fully interactive **single-browser preview mode** without a backend.
 
-**Not in v1:** paid image transformation services, full-text indexing, payment collection, application intake, notifications, member directory, automatic merge, executable protocols, agent orchestration or robotic operations. The Operate view records human activities; it does not execute procedures. These are deliberately not claimed as operational.
+**Not in v1:** paid image transformation services, full-text indexing, payment collection, automated admissions, notification delivery, member directory, automatic merge, executable protocols, agent orchestration or robotic operations. The Operate view records human activities; it does not execute procedures. These are deliberately not claimed as operational.
 
 ## Run without accounts (preview mode)
 
@@ -52,6 +53,14 @@ Do not reuse Applied State's production database.
    ```
 8. Update `applicationsEmail` in `src/config.js`, or leave the expression-of-interest route explicitly closed.
 9. Deploy to any HTTPS static host (GitHub Pages requires base-path configuration, unless custom domain/subdomain is used; Vercel/Netlify root deployment works without modifications).
+
+### Early-access interest
+
+The public form is at **https://parc-labs.github.io/Base/#early-access**, with a referral source parameter such as `?ref=arena#early-access`. The minimal form records an email, optional practice/intended-use notes, source and explicit contact consent. It is separate from Auth registration and does not confer membership or send confirmation email. Public visitors cannot read the list, and duplicate addresses are ignored.
+
+The privacy route (`#privacy`) lets visitors request access, correction or withdrawal without a login; operators must verify email ownership before acting. Apply `supabase/migrations/20261105_early_access_signups.sql` and `supabase/migrations/20261105_early_access_privacy_requests.sql` on a new Base database. Both are already installed on the existing dedicated Base Supabase project.
+
+**Operator guide:** [docs/early-access.md](docs/early-access.md) includes SQL review/export, invitation, referral attribution and privacy request procedures. There is currently no automated mailing list, double opt-in or robust server-side abuse control. Before substantial outreach, configure an actual public privacy/contact address, review the data-rights wording and consider server-side rate limiting.
 
 ### Connected Spaces
 

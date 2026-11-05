@@ -43,7 +43,11 @@ async function request(path,{method='GET',body,prefer}={}){
  const r=await fetch(config.supabaseUrl.replace(/\/$/,'')+path,{method,headers:{apikey:config.supabaseAnonKey,...(bearer()?{Authorization:`Bearer ${bearer()}`} : {}),...(body?{'Content-Type':'application/json'}:{}),...(prefer?{Prefer:prefer}:{})},body:body===undefined?undefined:JSON.stringify(body)})
  const text=await r.text();let result
  try{result=text?JSON.parse(text):null}catch{result=text}
- if(!r.ok)throw new Error(result?.message||result?.error_description||result?.hint||`Request failed (${r.status})`)
+ if(!r.ok){
+  const error=new Error(result?.message||result?.error_description||result?.hint||`Request failed (${r.status})`)
+  error.code=result?.code
+  throw error
+ }
  return result
 }
 const rest=(table,query='',opts={})=>request(`/rest/v1/${table}${query?`?${query}`:''}`,opts)
@@ -67,6 +71,50 @@ async function bootAuth(){
 export async function init(){await bootAuth()}
 export function authErrorMessage(){return authIssue}
 export function me(){if(!live){const d=readDemo();return {user:d.user,member:d.member,demo:true}}return {user,member:isMember,demo:false}}
+// Public expression of interest. This does not create an Auth user or membership.
+// Signups are insert-only; even signed-in users cannot retrieve email addresses.
+const earlyAccessPractices=new Set([
+ 'unspecified','artist','designer','architect','researcher',
+ 'technologist','maker','student','enthusiast','other'
+])
+export async function registerEarlyAccess(values={}){
+ if(!live)throw new Error('Early access registration is available on the live Base site.')
+ const email=String(values.email||'').trim().toLowerCase()
+ if(email.length>254||! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+  throw new Error('Enter a valid email address.')
+ if(values.consent!==true)throw new Error('Please consent to receive early-access updates.')
+ const practice=String(values.practice||'unspecified')
+ if(!earlyAccessPractices.has(practice))throw new Error('Choose a valid practice.')
+ const intendedUse=String(values.intendedUse||'').trim()
+ if(intendedUse.length>280)throw new Error('Your response must be 280 characters or fewer.')
+ const rawSource=String(values.source||'direct').toLowerCase()
+ const source=/^[a-z0-9_-]{1,40}$/.test(rawSource)?rawSource:'direct'
+ try{
+  await rest('early_access_signups','',{
+   method:'POST',prefer:'return=minimal',
+   body:{email,practice,intended_use:intendedUse,source,opt_in:true}
+  })
+ }catch(error){
+  // A duplicate email should have the same public confirmation as a new one.
+  // Never grant anonymous SELECT access to make an upsert work.
+  if(error.code!=='23505')throw error
+ }
+ return true
+}
+// Requests are write-only and reviewed manually; supplying an address alone
+// does not authorise its deletion or disclosure to the requester.
+export async function requestEarlyAccessPrivacy(values={}){
+ if(!live)throw new Error('Privacy requests are available on the live Base site.')
+ const email=String(values.email||'').trim().toLowerCase()
+ if(email.length>254||! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+  throw new Error('Enter a valid email address.')
+ const kind=String(values.requestType||'')
+ if(!['withdraw','access','correct'].includes(kind))throw new Error('Choose a request type.')
+ await rest('early_access_privacy_requests','',{
+  method:'POST',prefer:'return=minimal',body:{email,request_type:kind}
+ })
+ return true
+}
 export async function signIn(email){
  if(!live)return
  authIssue=''
