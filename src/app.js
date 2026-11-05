@@ -15,7 +15,7 @@ function toast(message){const old=document.querySelector('.toast');old?.remove()
 function navHtml(current){return nav.map(([key,title])=>`<a class="nav-link ${current===key?'active':''}" href="#${key}">${title}</a>`).join('')}
 function shell(main,current){
  const {user,demo}=db.me()
- return `<div class="frame"><header class="site-header"><a href="#explore" aria-label="Base home">${wordmark}</a></header><main class="page">${demo?'<div class="banner"><span>LOCAL PREVIEW</span><button class="text-btn" data-action="reset-demo">RESET</button></div>':''}${main}</main><footer class="site-footer" aria-label="Site navigation">${navHtml(current)}<a href="#apply">MEMBERSHIP</a>${user?'<a href="#signin">ACCOUNT</a>':'<a href="#signin">SIGN IN</a>'}</footer></div>`
+ return `<div class="frame"><header class="site-header"><a href="#explore" aria-label="Base home">${wordmark}</a><a class="header-access text-btn" href="#early-access">EARLY ACCESS</a></header><main class="page">${demo?'<div class="banner"><span>LOCAL PREVIEW</span><button class="text-btn" data-action="reset-demo">RESET</button></div>':''}${main}</main><footer class="site-footer" aria-label="Site navigation">${navHtml(current)}<a href="#apply">MEMBERSHIP</a><a href="#early-access">EARLY ACCESS</a>${user?'<a href="#signin">ACCOUNT</a>':'<a href="#signin">SIGN IN</a>'}</footer></div>`
 }
 const card=s=>`<a class="space-card" href="#space/${e(s.id)}">${s.cover_url&&safeUrl(s.cover_url)?`<img class="card-cover" src="${e(safeUrl(s.cover_url))}" alt="" loading="lazy">`:''}<span class="card-name">${e(s.title)}</span></a>`
 function displaySpaces(spaces){
@@ -89,12 +89,18 @@ function applyPage(){
  const email=config.applicationsEmail,valid=email&&!email.endsWith('example.org')
  return shell(`<article class="utility-document"><h1>MEMBERSHIP</h1><div class="utility-copy"><p>Founding access is by invitation.</p>${valid?`<p><a class="text-btn" href="mailto:${e(email)}?subject=Base%20%E2%80%94%20Membership%20enquiry">ENQUIRE ↗</a></p>`:''}</div></article>`,'apply')
 }
+function earlyAccessPage(){
+ return shell(`<article class="utility-document early-access-page"><h1>EARLY ACCESS</h1><div class="utility-copy"><p>Base is a workspace for collecting, connecting and developing work.</p><p>Access is opening gradually.</p><form data-form="early-access"><div class="field"><label for="early-email">EMAIL ADDRESS</label><input id="early-email" name="email" type="email" autocomplete="email" inputmode="email" required maxlength="254" placeholder="you@example.com"></div><div class="field"><label for="early-practice">PRACTICE (OPTIONAL)</label><select name="practice" id="early-practice"><option value="unspecified">—</option><option value="artist">Art</option><option value="designer">Design</option><option value="architect">Architecture</option><option value="researcher">Research</option><option value="technologist">Technology</option><option value="maker">Making</option><option value="student">Student</option><option value="enthusiast">Independent interest</option><option value="other">Other</option></select></div><div class="field"><label for="early-use">WHAT WOULD YOU USE BASE FOR? (OPTIONAL)</label><textarea id="early-use" name="intendedUse" maxlength="280" rows="2"></textarea></div><div class="form-trap" aria-hidden="true"><label>Website <input name="website" type="text" tabindex="-1" autocomplete="off"></label></div><label class="early-consent" for="early-consent"><input id="early-consent" name="consent" type="checkbox" required><span>I agree to receive Base early-access invitations and occasional product updates by email. I can withdraw at any time.</span></label><div class="form-actions"><button class="text-btn" type="submit">REGISTER INTEREST ↗</button></div><p class="notice" data-form-status role="status" aria-live="polite"></p></form><p class="early-small">No account is created. <a href="#privacy">PRIVACY ↗</a></p></div></article>`,'early-access')
+}
+function privacyPage(){
+ return shell(`<article class="utility-document privacy-page"><h1>PRIVACY</h1><div class="utility-copy"><p>Base collects your email address, any optional practice and project information you provide, the registration source and your consent timestamp.</p><p>We use this information only to manage early-access interest, invitations and related Base updates. Registrations do not create user accounts. The information is held in our Supabase database and is not publicly accessible or sold to advertisers.</p><p>We retain registrations while early access is being organised and review records that are no longer needed. You can request access, correction or withdrawal below. We verify ownership of an address before disclosing or changing its registration.</p><form data-form="privacy-request"><div class="field"><label for="privacy-email">EMAIL ADDRESS</label><input id="privacy-email" name="email" type="email" autocomplete="email" inputmode="email" required maxlength="254"></div><div class="field"><label for="privacy-type">REQUEST</label><select name="requestType" id="privacy-type" required><option value="withdraw">Withdraw / delete registration</option><option value="access">Access my registration</option><option value="correct">Correct my registration</option></select></div><div class="form-trap" aria-hidden="true"><label>Website <input name="website" type="text" tabindex="-1" autocomplete="off"></label></div><div class="form-actions"><button class="text-btn" type="submit">SEND REQUEST ↗</button></div><p class="notice" data-form-status role="status" aria-live="polite"></p></form></div></article>`,'privacy')
+}
 function signInPage(){
  const {user,member,demo}=db.me()
  if(user)return shell(`<article class="utility-document"><h1>ACCOUNT</h1><div class="utility-copy"><p>${e(user.email||'Demo account')}</p><p class="micro">${member?'ACTIVE':'PENDING APPROVAL'}</p><div class="form-actions">${member?'<a class="text-btn" href="#mine">MY SPACES ↗</a>':''}${!demo?'<button class="text-btn" data-action="signout">SIGN OUT</button>':'<button class="text-btn" data-action="reset-demo">RESET</button>'}</div></div></article>`,'signin')
  return shell(`<article class="utility-document"><h1>SIGN IN</h1><div class="utility-copy">${db.authErrorMessage()?`<p class="notice error" role="alert">${e(db.authErrorMessage())}</p>`:''}<form data-form="signin"><div class="field"><label for="signin-email">EMAIL</label><input id="signin-email" type="email" name="email" autocomplete="email" placeholder="Email address" required></div><button class="text-btn" type="submit">SEND LINK ↗</button><p class="notice" data-form-status role="status"></p></form></div></article>`,'signin')
 }
-async function render(){const path=route();lastRoute=path;try{let html;if(path.startsWith('space/'))html=await spacePage(path.slice(6));else if(path==='explore')html=await explore();else if(path==='mine')html=await mine();else if(path==='new')html=newPage();else if(path==='about')html=aboutPage();else if(path==='apply')html=applyPage();else if(path==='signin')html=signInPage();else html=await explore();if(lastRoute===path){root.innerHTML=html;document.title=(path==='explore'?'Explore':path.startsWith('space/')?'Space':path==='mine'?'My Spaces':'Base')+' — Base'}}catch(err){root.innerHTML=shell(`<div class="empty"><h3>Unable to load this page.</h3><p>${e(err.message)}</p><button class="btn ghost" data-action="retry">TRY AGAIN</button></div>`,'error')}}
+async function render(){const path=route();lastRoute=path;try{let html;if(path.startsWith('space/'))html=await spacePage(path.slice(6));else if(path==='explore')html=await explore();else if(path==='mine')html=await mine();else if(path==='new')html=newPage();else if(path==='about')html=aboutPage();else if(path==='apply')html=applyPage();else if(path==='early-access')html=earlyAccessPage();else if(path==='privacy')html=privacyPage();else if(path==='signin')html=signInPage();else html=await explore();if(lastRoute===path){root.innerHTML=html;document.title=(path==='explore'?'Explore':path.startsWith('space/')?'Space':path==='mine'?'My Spaces':'Base')+' — Base'}}catch(err){root.innerHTML=shell(`<div class="empty"><h3>Unable to load this page.</h3><p>${e(err.message)}</p><button class="btn ghost" data-action="retry">TRY AGAIN</button></div>`,'error')}}
 const modal=(title,body)=>{document.querySelector('.dialog-backdrop')?.remove();const wrapper=document.createElement('div');wrapper.className='dialog-backdrop';wrapper.innerHTML=`<div class="dialog" role="dialog" aria-modal="true" aria-label="${e(title)}"><div class="dialog-header"><button class="text-btn" data-action="close-modal" aria-label="Close dialog">✕</button></div><h2>${e(title)}</h2>${body}</div>`;document.body.append(wrapper);wrapper.querySelector('input,textarea,select,button')?.focus()}
 function modalForm(name,fields,action='SAVE'){modal(name,`<form data-form="${e(name.toLowerCase().replaceAll(' ','-'))}">${fields}<div class="form-actions"><button class="btn" type="submit">${e(action)} ↗</button><button class="btn ghost" data-action="close-modal" type="button">CANCEL</button></div><p class="notice" data-form-status role="status"></p></form>`)}
 const field=(label,name,value='',opts='')=>`<div class="field"><label for="dialog-${e(name)}">${e(label)}</label><input id="dialog-${e(name)}" name="${e(name)}" value="${e(value||'')}" ${opts}></div>`
@@ -175,6 +181,30 @@ document.addEventListener('submit',async ev=>{const form=ev.target.closest('[dat
   if(kind==='edit-space'){done=await perform(()=>db.updateSpace(id,{title:value(form,'title'),summary:value(form,'summary'),cover_url:value(form,'cover_url')||null,visibility:value(form,'visibility')}),form);if(done)render()}
  if(kind==='invite-collaborator'){done=await perform(()=>db.inviteCollaborator(id,value(form,'email')),form);if(done)toast(done.message)}
  if(kind==='record-activity'){const releases=await db.listReleases(id);done=await perform(()=>db.addOperationLog(id,releases[0]?.id,{title:value(form,'title'),details:value(form,'details')}),form);if(done){toast('Operational activity recorded');render()}}
+ if(kind==='early-access'){
+  const status=form.querySelector('[data-form-status]')
+  if(value(form,'website')){status.textContent='Interest registered.';return}
+  done=await perform(()=>db.registerEarlyAccess({
+   email:value(form,'email'),
+   practice:value(form,'practice'),
+   intendedUse:value(form,'intendedUse'),
+   source:(new URLSearchParams(location.search||'').get('ref')||'direct'),
+   consent:form.elements.namedItem('consent')?.checked===true
+  }),form)
+  if(done){
+   form.reset()
+   status.textContent='Interest registered. We will contact you when access is available.'
+  }
+ }
+ if(kind==='privacy-request'){
+  const status=form.querySelector('[data-form-status]')
+  if(value(form,'website')){status.textContent='Request received.';return}
+  done=await perform(()=>db.requestEarlyAccessPrivacy({
+   email:value(form,'email'),
+   requestType:value(form,'requestType')
+  }),form)
+  if(done){form.reset();status.textContent='Request received. We will verify it by email.'}
+ }
  if(kind==='signin'){done=await perform(async()=>{await db.signIn(value(form,'email'));return true},form);if(done)toast('Check your inbox for a sign-in link. Open it in this browser.')}
 })
 root.addEventListener('dragover',ev=>{
