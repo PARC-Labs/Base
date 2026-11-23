@@ -163,12 +163,22 @@ export async function signOut(){if(!live){demo=seed();saveDemo();return}try{awai
 function ensureMember(){if(!me().member)throw new Error('Active membership is required.')}
 export async function listSpaces(scope='explore'){
  if(!live){const d=readDemo();return d.spaces.filter(s=>scope==='mine'||s.visibility==='public').sort((a,b)=>b.updated_at.localeCompare(a.updated_at))}
- const spaces=await rest('spaces','select=id,title,summary,cover_url,author_name,visibility,owner_id,parent_release_id,updated_at&order=updated_at.desc&limit=200')
- if(scope!=='mine')return spaces.filter(s=>s.visibility==='public')
+ const fields='select=id,title,summary,cover_url,author_name,visibility,owner_id,parent_release_id,updated_at'
+ if(scope!=='mine'){
+  // Filter on the server: avoid downloading a mixed set and dropping private rows locally.
+  return rest('spaces',`${fields}&visibility=eq.public&order=updated_at.desc&limit=200`)
+ }
  if(!user)return []
+ // Query owned and collaborated Spaces independently: a busy public directory must
+ // not displace private Spaces from the first page of a global 200-row query.
  const collaborations=await rest('space_collaborators',`select=space_id&user_id=eq.${encodeURIComponent(user.id)}`)
- const joined=new Set(collaborations.map(c=>c.space_id))
- return spaces.filter(s=>s.owner_id===user.id||joined.has(s.id))
+ const ids=[...new Set(collaborations.map(c=>c.space_id))]
+ const [owned,shared]=await Promise.all([
+  rest('spaces',`${fields}&owner_id=eq.${encodeURIComponent(user.id)}&order=updated_at.desc&limit=200`),
+  ids.length?rest('spaces',`${fields}&id=in.(${ids.map(encodeURIComponent).join(',')})&order=updated_at.desc&limit=200`):[]
+ ])
+ return [...new Map([...owned,...shared].map(s=>[s.id,s])).values()]
+  .sort((a,b)=>b.updated_at.localeCompare(a.updated_at))
 }
 async function signedMediaUrl(path){
  if(!MEDIA_PATH.test(String(path||'')))return null
