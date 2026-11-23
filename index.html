@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#ffffff">
+  <!-- Defense in depth for the public static client. The publishable key is not a secret. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' https: data: blob:; connect-src 'self' https://niotfttsjntivmpizrnc.supabase.co; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+
   <meta name="description" content="Base — a working environment for collecting research and developing work. Early access is opening gradually.">
   <title>Base — A network for experimental practice</title>
   <link rel="icon" type="image/svg+xml" href="./assets/mark.svg">
