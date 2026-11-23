@@ -8,9 +8,9 @@ const appState={view:'grid',search:'',materialSearch:'',mobileNav:false,loading:
 const wordmark='<span class="wordmark">BASE</span>'
 const icon={arrow:'↗',fork:'⑂',add:'＋',close:'×',search:'⌕'}
 const nav=[['explore','EXPLORE'],['mine','MY SPACES'],['about','ABOUT']]
-let lastRoute=''
+let renderSequence=0
 const route=()=>location.hash.replace(/^#/,'')||'explore'
-function go(path){location.hash='#'+path;if(route()===path)render();scrollTo({top:0,behavior:'instant'})}
+function go(path){if(route()===path)render();else location.hash='#'+path;scrollTo({top:0,behavior:'instant'})}
 function toast(message){const old=document.querySelector('.toast');old?.remove();const node=document.createElement('div');node.className='toast';node.role='status';node.textContent=message;document.body.append(node);setTimeout(()=>node.remove(),4500)}
 function navHtml(current){return nav.map(([key,title])=>`<a class="nav-link ${current===key?'active':''}" href="#${key}">${title}</a>`).join('')}
 function shell(main,current){
@@ -100,7 +100,7 @@ function signInPage(){
  if(user)return shell(`<article class="utility-document"><h1>ACCOUNT</h1><div class="utility-copy"><p>${e(user.email||'Demo account')}</p><p class="micro">${member?'ACTIVE':'PENDING APPROVAL'}</p><div class="form-actions">${member?'<a class="text-btn" href="#mine">MY SPACES ↗</a>':''}${!demo?'<button class="text-btn" data-action="signout">SIGN OUT</button>':'<button class="text-btn" data-action="reset-demo">RESET</button>'}</div></div></article>`,'signin')
  return shell(`<article class="utility-document"><h1>SIGN IN</h1><div class="utility-copy">${db.authErrorMessage()?`<p class="notice error" role="alert">${e(db.authErrorMessage())}</p>`:''}<form data-form="signin"><div class="field"><label for="signin-email">EMAIL</label><input id="signin-email" type="email" name="email" autocomplete="email" placeholder="Email address" required></div><button class="text-btn" type="submit">SEND LINK ↗</button><p class="notice" data-form-status role="status"></p></form></div></article>`,'signin')
 }
-async function render(){const path=route();lastRoute=path;try{let html;if(path.startsWith('space/'))html=await spacePage(path.slice(6));else if(path==='explore')html=await explore();else if(path==='mine')html=await mine();else if(path==='new')html=newPage();else if(path==='about')html=aboutPage();else if(path==='apply')html=applyPage();else if(path==='early-access')html=earlyAccessPage();else if(path==='privacy')html=privacyPage();else if(path==='signin')html=signInPage();else html=await explore();if(lastRoute===path){root.innerHTML=html;document.title=(path==='explore'?'Explore':path.startsWith('space/')?'Space':path==='mine'?'My Spaces':'Base')+' — Base'}}catch(err){root.innerHTML=shell(`<div class="empty"><h3>Unable to load this page.</h3><p>${e(err.message)}</p><button class="btn ghost" data-action="retry">TRY AGAIN</button></div>`,'error')}}
+async function render(){const path=route(),sequence=++renderSequence;try{let html;if(path.startsWith('space/'))html=await spacePage(path.slice(6));else if(path==='explore')html=await explore();else if(path==='mine')html=await mine();else if(path==='new')html=newPage();else if(path==='about')html=aboutPage();else if(path==='apply')html=applyPage();else if(path==='early-access')html=earlyAccessPage();else if(path==='privacy')html=privacyPage();else if(path==='signin')html=signInPage();else html=await explore();if(sequence===renderSequence&&route()===path){root.innerHTML=html;document.title=(path==='explore'?'Explore':path.startsWith('space/')?'Space':path==='mine'?'My Spaces':'Base')+' — Base'}}catch(err){if(sequence!==renderSequence||route()!==path)return;root.innerHTML=shell(`<div class="empty"><h3>Unable to load this page.</h3><p>${e(err.message)}</p><button class="btn ghost" data-action="retry">TRY AGAIN</button></div>`,'error')}}
 const modal=(title,body)=>{document.querySelector('.dialog-backdrop')?.remove();const wrapper=document.createElement('div');wrapper.className='dialog-backdrop';wrapper.innerHTML=`<div class="dialog" role="dialog" aria-modal="true" aria-label="${e(title)}"><div class="dialog-header"><button class="text-btn" data-action="close-modal" aria-label="Close dialog">✕</button></div><h2>${e(title)}</h2>${body}</div>`;document.body.append(wrapper);wrapper.querySelector('input,textarea,select,button')?.focus()}
 function modalForm(name,fields,action='SAVE'){modal(name,`<form data-form="${e(name.toLowerCase().replaceAll(' ','-'))}">${fields}<div class="form-actions"><button class="btn" type="submit">${e(action)} ↗</button><button class="btn ghost" data-action="close-modal" type="button">CANCEL</button></div><p class="notice" data-form-status role="status"></p></form>`)}
 const field=(label,name,value='',opts='')=>`<div class="field"><label for="dialog-${e(name)}">${e(label)}</label><input id="dialog-${e(name)}" name="${e(name)}" value="${e(value||'')}" ${opts}></div>`
@@ -109,6 +109,7 @@ function value(form,key){return form.elements.namedItem(key)?.value?.trim()||''}
 async function perform(fn,form){const button=form?.querySelector('button[type="submit"]');const status=form?.querySelector('[data-form-status]');if(button)button.disabled=true;if(status){status.classList.remove('error');status.textContent='Working…'}try{const result=await fn();document.querySelector('.dialog-backdrop')?.remove();return result}catch(err){if(status){status.textContent=err.message;status.classList.add('error')}else toast(err.message);return null}finally{if(button)button.disabled=false}}
 root.addEventListener('click',async ev=>{
  const target=ev.target.closest('[data-action]');if(!target)return;const action=target.dataset.action;
+ const id=currentId();
  if(action==='menu'){appState.mobileNav=!appState.mobileNav;await render();return}
  if(action==='account'){go('signin');return}
  if(action==='retry'){render();return}
@@ -130,7 +131,7 @@ root.addEventListener('click',async ev=>{
   return
  }
  if(action==='copy-link'){try{await navigator.clipboard.writeText(location.href);toast('Space link copied')}catch{toast('Select and copy the address from your browser.')}return}
- const id=currentId();if(!id)return;
+ if(!id)return;
  if(action==='upload-media'){
   modalForm('Upload media',`<div class="field"><label for="base-media-file">Image or PDF</label><input id="base-media-file" name="file" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" required></div><p class="micro">JPG / PNG / WEBP / PDF · 5 MB MAX</p>${field('Title (optional)','title','','maxlength="180"')}<div class="field"><label for="media-notes">CAPTION (OPTIONAL)</label><textarea id="media-notes" name="body" maxlength="10000"></textarea></div>`,'UPLOAD');return
  }
