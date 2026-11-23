@@ -17,6 +17,7 @@ test('a 401 during an active session refreshes credentials and retries only once
   if(url.includes('/auth/v1/user'))return response(200,{id:'11111111-1111-4111-8111-111111111111',email:'member@example.org'})
   if(url.includes('/auth/v1/token?grant_type=refresh_token')){
    refreshes++
+   if(options.headers?.Authorization)throw Error('Refresh must not attach an expired bearer token')
    return response(200,{access_token:'new-token',refresh_token:'new-refresh',expires_in:3600})
   }
   if(url.includes('/rest/v1/memberships'))return response(200,[{status:'active'}])
