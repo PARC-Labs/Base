@@ -39,20 +39,53 @@ function readDemo(){if(demo)return demo;try{demo=JSON.parse(localStorage.getItem
 function saveDemo(){localStorage.setItem(DEMO_KEY,JSON.stringify(demo))}
 let session=null, user=null, isMember=false, authIssue=''
 function bearer(){return session?.access_token || (config.supabaseAnonKey.startsWith('eyJ')?config.supabaseAnonKey:null)}
-async function request(path,{method='GET',body,prefer}={}){
- const r=await fetch(config.supabaseUrl.replace(/\/$/,'')+path,{method,headers:{apikey:config.supabaseAnonKey,...(bearer()?{Authorization:`Bearer ${bearer()}`} : {}),...(body?{'Content-Type':'application/json'}:{}),...(prefer?{Prefer:prefer}:{})},body:body===undefined?undefined:JSON.stringify(body)})
+async function request(path,{method='GET',body,prefer,skipRefresh=false}={}){
+ // Sessions can expire while the application is open. Refresh once for concurrent
+ // calls rather than requiring users to reload or losing an in-progress operation.
+ if(!skipRefresh&&session?.refresh_token&&session.expires_at&&session.expires_at<=Math.floor(Date.now()/1000)+60)await refresh()
+ const send=()=>fetch(config.supabaseUrl.replace(/\/$/,'')+path,{method,headers:{apikey:config.supabaseAnonKey,...(bearer()?{Authorization:`Bearer ${bearer()}`} : {}),...(body!==undefined?{'Content-Type':'application/json'}:{}),...(prefer?{Prefer:prefer}:{})},body:body===undefined?undefined:JSON.stringify(body)})
+ const tokenUsed=session?.access_token
+ let r=await send()
+ if(!skipRefresh&&r.status===401&&session?.refresh_token){
+  // Another request may already have refreshed this token.
+  const renewed=tokenUsed!==session.access_token||await refresh()
+  if(renewed)r=await send()
+ }
  const text=await r.text();let result
  try{result=text?JSON.parse(text):null}catch{result=text}
  if(!r.ok){
   const error=new Error(result?.message||result?.error_description||result?.hint||`Request failed (${r.status})`)
   error.code=result?.code
+  error.status=r.status
   throw error
  }
  return result
 }
 const rest=(table,query='',opts={})=>request(`/rest/v1/${table}${query?`?${query}`:''}`,opts)
 const rpc=(name,body={})=>request(`/rest/v1/rpc/${name}`,{method:'POST',body})
-async function refresh(){if(!session?.refresh_token)return;try{const next=await request('/auth/v1/token?grant_type=refresh_token',{method:'POST',body:{refresh_token:session.refresh_token}});session=next;localStorage.setItem(SESSION_KEY,JSON.stringify(next))}catch{session=null;user=null;localStorage.removeItem(SESSION_KEY)}}
+let refreshPromise=null
+async function refresh(){
+ if(!session?.refresh_token)return false
+ if(refreshPromise)return refreshPromise
+ refreshPromise=(async()=>{
+  try{
+   const next=await request('/auth/v1/token?grant_type=refresh_token',{
+    method:'POST',body:{refresh_token:session.refresh_token},skipRefresh:true
+   })
+   if(!next?.access_token||!next?.refresh_token)throw new Error('Invalid refresh response.')
+   session={...next,expires_at:Math.floor(Date.now()/1000)+Number(next.expires_in||3600)}
+   localStorage.setItem(SESSION_KEY,JSON.stringify(session))
+   return true
+  }catch(error){
+   // A temporary network failure must not discard a potentially valid login.
+   if(error.status===400||error.status===401){
+    session=null;user=null;isMember=false;localStorage.removeItem(SESSION_KEY)
+   }
+   return false
+  }
+ })()
+ try{return await refreshPromise}finally{refreshPromise=null}
+}
 async function bootAuth(){
  if(!live){readDemo();return}
  const params=new URLSearchParams(location.hash.slice(1));
