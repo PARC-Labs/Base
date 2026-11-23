@@ -43,7 +43,7 @@ async function request(path,{method='GET',body,prefer,skipRefresh=false}={}){
  // Sessions can expire while the application is open. Refresh once for concurrent
  // calls rather than requiring users to reload or losing an in-progress operation.
  if(!skipRefresh&&session?.refresh_token&&session.expires_at&&session.expires_at<=Math.floor(Date.now()/1000)+60)await refresh()
- const send=()=>fetch(config.supabaseUrl.replace(/\/$/,'')+path,{method,headers:{apikey:config.supabaseAnonKey,...(bearer()?{Authorization:`Bearer ${bearer()}`} : {}),...(body!==undefined?{'Content-Type':'application/json'}:{}),...(prefer?{Prefer:prefer}:{})},body:body===undefined?undefined:JSON.stringify(body)})
+ const send=()=>fetch(config.supabaseUrl.replace(/\/$/,'')+path,{method,headers:{apikey:config.supabaseAnonKey,...(!skipRefresh&&bearer()?{Authorization:`Bearer ${bearer()}`} : {}),...(body!==undefined?{'Content-Type':'application/json'}:{}),...(prefer?{Prefer:prefer}:{})},body:body===undefined?undefined:JSON.stringify(body)})
  const tokenUsed=session?.access_token
  let r=await send()
  if(!skipRefresh&&r.status===401&&session?.refresh_token){
