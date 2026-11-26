@@ -47,11 +47,17 @@ test('privacy route has an accessible data-rights request flow',async()=>{
  assert.doesNotMatch(html,/support@example/)
 })
 
-test('explore and membership still reach early access',async()=>{
+test('preview routes to live early access rather than a non-working demo signup',async()=>{
  const explore=await goto('explore')
  const membership=await goto('apply')
- assert.match(explore,/href="#early-access"/)
- assert.match(membership,/href="#early-access"/)
+ for(const html of [explore,membership]){
+  assert.match(html,/href="\/Base\/#early-access"/)
+  assert.match(html,/LOCAL PREVIEW/)
+  assert.match(html,/EXIT PREVIEW \/ EARLY ACCESS/)
+ }
+ const intro=await goto('intro')
+ assert.match(intro,/href="\/Base\/\?preview=1#explore"/)
+ assert.match(intro,/href="\/Base\/#early-access"/)
 })
 
 test('preview cannot silently collect actual interest',async()=>{
