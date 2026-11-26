@@ -163,3 +163,20 @@ h1,h2,h3,p,figure{margin:0}.frame{display:grid;grid-template-rows:auto minmax(0,
 .form-trap{position:absolute!important;left:-9999px!important;width:1px!important;height:1px!important;overflow:hidden!important}
 .privacy-page .utility-copy>form{margin-top:50px}
 @media(max-width:767px){.early-consent{margin-top:30px}}
+
+
+/* Founding access: a legible first visit without inventing public member work. */
+.intro-page{padding-top:clamp(110px,18vh,230px);max-width:1040px}
+.intro-page h1{font-size:clamp(36px,6vw,78px);font-weight:400;letter-spacing:-.05em;line-height:1.05;max-width:880px;margin:clamp(44px,8vh,90px) 0 clamp(45px,8vh,82px)}
+.intro-copy{max-width:610px}
+.intro-copy p{line-height:1.6}
+.intro-copy p+p{margin-top:1.2em}
+.intro-actions{display:flex;gap:18px 38px;flex-wrap:wrap;align-items:baseline;margin-top:clamp(40px,7vh,70px)}
+.example-page{padding-top:clamp(110px,18vh,230px)}
+.example-marker{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:15px}
+.example-page .space-hero{padding-top:clamp(55px,9vh,105px);padding-bottom:clamp(55px,9vh,100px)}
+.example-page .materials{padding-top:42px;max-width:900px}
+.example-end{max-width:600px;border-top:1px solid var(--rule);margin:clamp(75px,12vh,150px) 0 0;padding-top:25px;line-height:1.6}
+.example-end .text-btn{display:inline-block;margin-top:28px}
+.collection-page .minimal-empty a{text-decoration:underline;text-underline-offset:.2em}
+@media(max-width:767px){.intro-page,.example-page{padding-top:clamp(96px,17vh,160px)}.intro-page h1{font-size:clamp(34px,9vw,58px)}.example-page .space-hero{padding-top:55px}.example-page .materials{padding-top:30px}}
