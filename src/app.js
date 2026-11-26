@@ -9,13 +9,25 @@ const wordmark='<span class="wordmark">BASE</span>'
 const icon={arrow:'↗',fork:'⑂',add:'＋',close:'×',search:'⌕'}
 const nav=[['explore','EXPLORE'],['mine','MY SPACES'],['about','ABOUT']]
 let renderSequence=0
-const route=()=>location.hash.replace(/^#/,'')||'intro'
+const route=()=>location.hash.replace(/^#/,'')||(db.isLive?'intro':'explore')
 function go(path){if(route()===path)render();else location.hash='#'+path;scrollTo({top:0,behavior:'instant'})}
 function toast(message){const old=document.querySelector('.toast');old?.remove();const node=document.createElement('div');node.className='toast';node.role='status';node.textContent=message;document.body.append(node);setTimeout(()=>node.remove(),4500)}
 function navHtml(current){return nav.map(([key,title])=>`<a class="nav-link ${current===key?'active':''}" href="#${key}">${title}</a>`).join('')}
+function liveAccessHref(){
+ const params=new URLSearchParams(location.search)
+ params.delete('preview')
+ return location.pathname+(params.toString()?'?'+params.toString():'')+'#early-access'
+}
+function previewHref(){
+ const params=new URLSearchParams(location.search)
+ params.set('preview','1')
+ return location.pathname+'?'+params.toString()+'#explore'
+}
 function shell(main,current){
  const {user,demo}=db.me()
- return `<div class="frame"><header class="site-header"><a href="#intro" aria-label="Base home">${wordmark}</a><a class="header-access text-btn" href="${user?'#mine':'#early-access'}">${user?'MY SPACES':'EARLY ACCESS'}</a></header><main class="page">${demo?'<div class="banner"><span>LOCAL PREVIEW</span><button class="text-btn" data-action="reset-demo">RESET</button></div>':''}${main}</main><footer class="site-footer" aria-label="Site navigation">${navHtml(current)}<a href="#apply">MEMBERSHIP</a><a href="#early-access">EARLY ACCESS</a>${user?'<a href="#signin">ACCOUNT</a>':'<a href="#signin">SIGN IN</a>'}</footer></div>`
+ const accessTarget=demo?liveAccessHref():'#early-access'
+ const content=demo?main.replaceAll('href="#early-access"',`href="${accessTarget}"`):main
+ return `<div class="frame"><header class="site-header"><a href="#intro" aria-label="Base home">${wordmark}</a><a class="header-access text-btn" href="${user?'#mine':accessTarget}">${user?'MY SPACES':'EARLY ACCESS'}</a></header><main class="page">${demo?`<div class="banner"><span>LOCAL PREVIEW · CHANGES STAY IN THIS BROWSER</span><a class="text-btn" href="${accessTarget}">EXIT PREVIEW / EARLY ACCESS ↗</a><button class="text-btn" data-action="reset-demo">RESET</button></div>`:''}${content}</main><footer class="site-footer" aria-label="Site navigation">${navHtml(current)}<a href="#apply">MEMBERSHIP</a><a href="${accessTarget}">EARLY ACCESS</a>${user?'<a href="#signin">ACCOUNT</a>':'<a href="#signin">SIGN IN</a>'}</footer></div>`
 }
 function introPage(){
  return shell(`<article class="intro-page">
@@ -24,7 +36,7 @@ function introPage(){
   <div class="intro-copy">
    <p>Collect notes, images, PDFs and links in Spaces. Connect related work, collaborate and record versioned releases.</p>
    <p>The founding trial is open to a small group working on existing creative or research projects. Participation is free; feedback is part of the trial.</p>
-   <div class="intro-actions"><a class="text-btn" href="#example">VIEW EXAMPLE SPACE ↗</a><a class="text-btn" href="#early-access">REGISTER INTEREST ↗</a></div>
+   <div class="intro-actions"><a class="text-btn" href="#example">VIEW EXAMPLE SPACE ↗</a><a class="text-btn" href="${previewHref()}">TRY INTERACTIVE PREVIEW ↗</a><a class="text-btn" href="#early-access">REGISTER INTEREST ↗</a></div>
   </div>
  </article>`,'intro')
 }
@@ -39,7 +51,7 @@ function examplePage(){
   <section class="space-hero"><h1 class="space-title">Marine Instruments</h1><p class="space-summary">A study of low-cost sensing, open ocean instrumentation and situated observation.</p><div class="space-meta"><span>EXAMPLE / NOT A PUBLISHED MEMBER PROJECT</span><span>3 MATERIALS</span></div></section>
   <div class="tabbar"><span class="micro">GRID</span><span class="micro">DOCUMENT</span><span class="micro">BUILD</span><span class="micro">OPERATE</span></div>
   <div class="materials">${sample.map(m=>materialHtml(m,'grid',false)).join('')}</div>
-  <div class="example-end"><p>Members can connect Spaces, collaborate and save immutable releases. This is an illustrative, read-only example.</p><a class="text-btn" href="#early-access">REGISTER INTEREST ↗</a></div>
+  <div class="example-end"><p>Members can connect Spaces, collaborate and save immutable releases. This is an illustrative, read-only example.</p><a class="text-btn" href="${previewHref()}">TRY INTERACTIVE PREVIEW ↗</a> <a class="text-btn" href="#early-access">REGISTER INTEREST ↗</a></div>
  </section>`,'example')
 }
 const card=s=>`<a class="space-card" href="#space/${e(s.id)}">${s.cover_url&&safeUrl(s.cover_url)?`<img class="card-cover" src="${e(safeUrl(s.cover_url))}" alt="" loading="lazy">`:''}<span class="card-name">${e(s.title)}</span></a>`
