@@ -1,7 +1,8 @@
 import { config } from './config.js'
 import {prepareMedia} from './media.js'
 
-const live = Boolean(config.supabaseUrl && config.supabaseAnonKey) && !(typeof process !== 'undefined' && process.env.BASE_PREVIEW_TEST === '1')
+const browserPreview = typeof location !== 'undefined' && new URLSearchParams(location.search).get('preview') === '1'
+const live = Boolean(config.supabaseUrl && config.supabaseAnonKey) && !browserPreview && !(typeof process !== 'undefined' && process.env.BASE_PREVIEW_TEST === '1')
 export const isLive = live
 const DEMO_KEY = 'base_v1_demo_20261028'
 const SESSION_KEY = 'base_v1_session'
