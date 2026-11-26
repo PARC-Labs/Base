@@ -29,6 +29,8 @@ python3 -m http.server 8080
 
 For local-only preview mode, temporarily leave the public Supabase URL and publishable key blank in `src/config.js`; the production checkout uses live Supabase. New Spaces, materials, releases and forks persist in your browser's localStorage. Reset from the preview banner. This is **not multi-user**.
 
+Visitors can try the same local-only sample workspace at [`?preview=1#explore`](https://parc-labs.github.io/Base/?preview=1#explore) without signing in. The preview uses synthetic demo materials, saves changes only in that browser's local storage, and never writes to Supabase. The preview banner provides a route back to the live early-access form. Do not treat preview activity as real registrations or production work.
+
 The sample materials are synthetic original SVG drawings committed under `assets/`. Native uploads are unavailable in local-only preview mode; they require authentication to the existing Base Supabase project.
 
 ## Connect a NEW Supabase project
