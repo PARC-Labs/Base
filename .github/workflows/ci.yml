@@ -18,3 +18,5 @@ jobs:
         run: npm run check
       - name: Workflow tests
         run: npm test
+      - name: Real browser smoke test
+        run: npm run e2e
