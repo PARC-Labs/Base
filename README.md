@@ -62,7 +62,7 @@ The public form is at **https://parc-labs.github.io/Base/#early-access**, with a
 
 The privacy route (`#privacy`) lets visitors request access, correction or withdrawal without a login; operators must verify email ownership before acting. Apply `supabase/migrations/20261105_early_access_signups.sql` and `supabase/migrations/20261105_early_access_privacy_requests.sql` on a new Base database. Both are already installed on the existing dedicated Base Supabase project.
 
-**Operator guide:** [docs/early-access.md](docs/early-access.md) includes SQL review/export, invitation, referral attribution and privacy request procedures. There is currently no automated mailing list, double opt-in or robust server-side abuse control. Before substantial outreach, configure an actual public privacy/contact address, review the data-rights wording and consider server-side rate limiting.
+**Operator guide:** [docs/early-access.md](docs/early-access.md) includes SQL review/export, invitation, referral attribution and privacy request procedures. There is currently no automated mailing list or double opt-in. Anonymous forms now use a dedicated Edge Function and server-side database quotas; direct browser INSERT privileges were removed on 27 November 2026. The IP-derived rate limits still need operational monitoring and are not a substitute for bot challenges at large scale. Configure a real public privacy/contact address and review the data-rights wording before larger outreach.
 
 ### Connected Spaces
 
