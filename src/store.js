@@ -350,6 +350,22 @@ export async function releaseSpace(spaceId){ensureMember();if(!live){const d=rea
 export async function forkRelease(releaseId){ensureMember();if(!live){const d=readDemo();const r=d.releases.find(x=>x.id===releaseId);if(!r)throw new Error('Release not found');const src=d.spaces.find(x=>x.id===r.space_id);if(src?.visibility!=='public')throw new Error('Only public releases can be forked');const s={id:id(),owner_id:d.user.id,author_name:d.user.name,title:r.snapshot.title+' — fork',summary:r.snapshot.summary,cover_url:r.snapshot.cover_url,visibility:'private',parent_release_id:releaseId,updated_at:now()};d.spaces.unshift(s);r.snapshot.materials.forEach((m,i)=>d.materials.push({id:id(),space_id:s.id,...m,position:i+1,created_at:now()}));saveDemo();return s.id}
  return rpc('fork_release',{target_release_id:releaseId})}
 export async function inviteCollaborator(spaceId,email){ensureMember();if(!live){return {message:`Demo invitation noted for ${email}. Multi-user invitations require Supabase.`}}await rpc('invite_space_collaborator',{target_space_id:spaceId,invitee_email:email});return {message:'Collaborator added. They can now access the Space.'}}
+export async function listCollaborators(spaceId){
+ if(!me().member)return []
+ if(!live)return []
+ const rows=await rpc('base_list_collaborators',{target_space_id:spaceId})
+ return Array.isArray(rows)?rows:[]
+}
+export async function revokeCollaborator(spaceId,email){
+ ensureMember()
+ if(!live)throw new Error('Multi-user collaboration requires Supabase.')
+ const normalized=String(email||'').trim().toLowerCase()
+ if(normalized.length>254||! /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized))
+  throw new Error('Enter a valid collaborator email.')
+ const removed=await rpc('base_revoke_collaborator',{target_space_id:spaceId,invitee_email:normalized})
+ if(removed!==true)throw new Error('This member is not a collaborator on the Space.')
+ return true
+}
 export async function listOperationLogs(spaceId){
  if(!live)return readDemo().operation_logs.filter(log=>log.space_id===spaceId).sort((a,b)=>b.created_at.localeCompare(a.created_at))
  return rest('operation_logs',`select=id,space_id,release_id,actor_id,title,details,created_at&space_id=eq.${encodeURIComponent(spaceId)}&order=created_at.desc&limit=100`)
