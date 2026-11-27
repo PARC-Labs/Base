@@ -17,9 +17,10 @@ The separate `early_access_privacy_requests` table collects requests to
 withdraw, inspect or correct data. Those requests **must be verified by email**
 before acting: anyone could type someone else's address into a form.
 
-Neither table grants SELECT/UPDATE/DELETE to browser roles. Anon and
-authenticated clients can only INSERT specified columns. Supabase administrators
-may inspect and manage records through SQL Editor/Table Editor. No API secret is
+Neither table grants SELECT/INSERT/UPDATE/DELETE to public browser roles.
+The `base-public-form` Edge Function accepts public submissions and invokes a
+service-only, rate-limited database procedure. Supabase administrators may
+inspect and manage records through SQL Editor/Table Editor. No API secret is
 included in the public application.
 
 ## Review registrations (admin only)
@@ -112,9 +113,11 @@ without explicit approval.
 - No automatic invitations, marketing emails or payment collection.
 - No confirmed double opt-in or email ownership check for a registration.
   Invitations should be sent carefully and should identify the sender.
-- Simple browser honeypot only. This is **not** robust server-side spam/rate
-  limiting. Monitor for abuse and add CAPTCHA/Turnstile and server throttling
-  before high-volume promotion.
+- The browser honeypot is supplemented by server-side rate limiting (per
+  hashed client fingerprint and per email) and validation, enforced through an
+  Edge Function and privileged SQL routine. These controls do not stop
+  distributed botnets or attackers who rotate client networks. Monitor abuse;
+  consider Turnstile and independent gateway throttling for high-volume use.
 - GDPR/POPIA compliance is not established by the form alone. Review the
   operator identity, privacy notice, consent records, deletion/retention and
   cross-border data handling before a wider launch.

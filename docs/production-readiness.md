@@ -18,7 +18,7 @@ This is a technical acceptance checklist, not a declaration that the service is 
 2. Deploy `base-public-form` with `verify_jwt=false` and the default server-side Supabase secret.
 3. Deploy the client that calls `/functions/v1/base-public-form`.
 4. Smoke-test an invalid request (expect HTTP 400) and a real consented registration (expect HTTP 200, recorded once).
-5. Revoke all anonymous and authenticated direct INSERT grants to the original form tables using the follow-up migration. The Edge Function remains the only writer.
+5. **Completed 27 November 2026:** revocation migration `20261127_lock_down_public_forms.sql` removed all old column-level and table-level INSERT grants. The Edge Function is now the only public-submission writer. GitHub Pages deployment and a live HTTP smoke test both passed; synthetic test records were deleted.
 
 Avoid doing step 5 before the new client is live. Never place a service-role key in GitHub, a screenshot or browser code.
 
