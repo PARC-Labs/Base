@@ -13,7 +13,7 @@ function request(body,{origin='https://parc-labs.github.io',method='POST',header
 test('anonymous forms validate inputs, use only server key and submit salted hashes',async()=>{
  const calls=[]
  const handler=createPublicFormHandler({baseUrl:endpoint,serviceRoleKey:secret,
-  fetchImpl:async(url,opts)=>{calls.push({url,opts});return new Response('',{status:204})}
+  fetchImpl:async(url,opts)=>{calls.push({url,opts});return new Response(null,{status:204})}
  })
  const res=await handler(request({kind:'signup',email:'  RESEARCHER@EXAMPLE.COM  ',practice:'student',consent:true,intendedUse:' Field Research ',source:'ref'}))
  assert.equal(res.status,200)
@@ -34,7 +34,7 @@ test('anonymous forms validate inputs, use only server key and submit salted has
 })
 test('rejects invalid consent, malformed payload, origins and unsupported method without DB writes',async()=>{
  let count=0
- const handler=createPublicFormHandler({baseUrl:endpoint,serviceRoleKey:secret,fetchImpl:async()=>{count++;return new Response('',{status:204})}})
+ const handler=createPublicFormHandler({baseUrl:endpoint,serviceRoleKey:secret,fetchImpl:async()=>{count++;return new Response(null,{status:204})}})
  assert.equal((await handler(request({kind:'signup',email:'x@example.com',consent:false}))).status,400)
  assert.equal((await handler(request({kind:'signup',email:'notanemail',consent:true}))).status,400)
  assert.equal((await handler(request({kind:'privacy',email:'a@example.org',requestType:'unknown'}))).status,400)
