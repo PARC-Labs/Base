@@ -77,26 +77,50 @@ async function request(path,{method='GET',body,prefer,skipRefresh=false}={}){
 }
 const rest=(table,query='',opts={})=>request(`/rest/v1/${table}${query?`?${query}`:''}`,opts)
 const rpc=(name,body={})=>request(`/rest/v1/rpc/${name}`,{method:'POST',body})
+function readStoredSession(){
+ try{
+  const value=JSON.parse(localStorage.getItem(SESSION_KEY)||'null')
+  return value?.access_token&&value?.refresh_token?value:null
+ }catch{return null}
+}
 let refreshPromise=null
 async function refresh(){
  if(!session?.refresh_token)return false
  if(refreshPromise)return refreshPromise
- refreshPromise=(async()=>{
+ const perform=async()=>{
+  const token=session?.refresh_token
+  if(!token)return false
+  // Other tabs may rotate the refresh token first. Adopt that session rather
+  // than retrying the stale token and accidentally logging every tab out.
+  const current=readStoredSession()
+  if(current&&current.refresh_token!==token){session=current;return true}
   try{
    const next=await request('/auth/v1/token?grant_type=refresh_token',{
-    method:'POST',body:{refresh_token:session.refresh_token},skipRefresh:true
+    method:'POST',body:{refresh_token:token},skipRefresh:true
    })
    if(!next?.access_token||!next?.refresh_token)throw new Error('Invalid refresh response.')
+   // A sign-out or a newer token won the race while this network request ran.
+   const newest=readStoredSession()
+   if(!session||!newest)return false
+   if(newest.refresh_token!==token){session=newest;return true}
    session={...next,expires_at:Math.floor(Date.now()/1000)+Number(next.expires_in||3600)}
    localStorage.setItem(SESSION_KEY,JSON.stringify(session))
    return true
   }catch(error){
+   const newer=readStoredSession()
+   if(newer&&newer.refresh_token!==token){session=newer;return true}
    // A temporary network failure must not discard a potentially valid login.
-   if(error.status===400||error.status===401){
+   if((error.status===400||error.status===401)&&session?.refresh_token===token){
     session=null;user=null;isMember=false;localStorage.removeItem(SESSION_KEY)
    }
    return false
   }
+ }
+ refreshPromise=(async()=>{
+  if(typeof navigator!=='undefined'&&navigator.locks?.request){
+   return navigator.locks.request('base-session-refresh',{mode:'exclusive'},perform)
+  }
+  return perform()
  })()
  try{return await refreshPromise}finally{refreshPromise=null}
 }
@@ -131,7 +155,12 @@ if(live&&typeof window!=='undefined'&&window.addEventListener){
  window.addEventListener('storage',event=>{
   if(event.key!==SESSION_KEY)return
   if(!event.newValue){session=null;user=null;isMember=false}
-  else if(!session){try{session=JSON.parse(event.newValue)}catch{session=null}}
+  else{
+   // A refresh or login in another tab replaces our cached token, even when
+   // this tab already has a session. Identity is revalidated before rendering.
+   session=readStoredSession()
+   user=null;isMember=false
+  }
   if(typeof window.dispatchEvent==='function'&&typeof Event!=='undefined')window.dispatchEvent(new Event('base-auth-changed'))
  })
 }

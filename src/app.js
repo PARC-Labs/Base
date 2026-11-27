@@ -273,5 +273,6 @@ root.addEventListener('drop',async ev=>{
  finally{target.classList.remove('uploading')}
 })
 window.addEventListener('hashchange',()=>{appState.search='';appState.materialSearch='';appState.mobileNav=false;render()})
+window.addEventListener('base-auth-changed',async()=>{await db.init();render()})
 window.addEventListener('keydown',e=>{if(e.key==='Escape')document.querySelector('.dialog-backdrop')?.remove()})
 await db.init();await render()
