@@ -65,17 +65,15 @@ test('preview cannot silently collect actual interest',async()=>{
  await assert.rejects(()=>db.requestEarlyAccessPrivacy({email:'person@example.invalid',requestType:'withdraw'}),/live Base site/)
 })
 
-test('anonymous submissions go only to write-only REST routes, not Auth',()=>{
+test('anonymous submissions reach only the guarded endpoint, not Auth or public tables',()=>{
  const script=`
   globalThis.localStorage={getItem:()=>null,setItem(){},removeItem(){}}
   globalThis.location={origin:'https://parc-labs.github.io',pathname:'/Base/',hash:'',search:''}
   const calls=[]
-  let duplicateNext=false
   globalThis.fetch=async(url,options={})=>{
    calls.push({url,options})
-   if(!url.includes('/rest/v1/early_access_'))throw Error('Unexpected endpoint '+url)
-   if(duplicateNext){duplicateNext=false;return {ok:false,status:409,text:async()=>JSON.stringify({code:'23505',message:'Duplicate email'})}}
-   return {ok:true,status:201,text:async()=>''}
+   if(!url.endsWith('/functions/v1/base-public-form'))throw Error('Unexpected endpoint '+url)
+   return {ok:true,status:200,text:async()=>JSON.stringify({ok:true})}
   }
   const db=await import('./src/store.js')
   await db.registerEarlyAccess({
@@ -85,20 +83,19 @@ test('anonymous submissions go only to write-only REST routes, not Auth',()=>{
   })
   if(calls.length!==1)throw Error('Wrong number of requests')
   const first=calls[0]
-  if(!first.url.endsWith('/rest/v1/early_access_signups'))throw Error('Wrong signup route')
   if(first.options.method!=='POST')throw Error('Wrong method')
-  if(!first.options.headers.Prefer.includes('return=minimal'))throw Error('Data must not be returned')
-  if(first.options.headers.Prefer.includes('resolution='))throw Error('An upsert would require extra SELECT grants')
   const body=JSON.parse(first.options.body)
-  if(body.email!=='test.person@example.invalid'||body.opt_in!==true||body.source!=='reddit')throw Error('Wrong signup payload')
-  duplicateNext=true
+  if(body.email!=='test.person@example.invalid'||body.kind!=='signup'||body.consent!==true||body.source!=='reddit')
+   throw Error('Wrong signup payload')
   await db.registerEarlyAccess({email:'test.person@example.invalid',consent:true})
-  if(calls.length!==2)throw Error('Duplicate was not sent or rejected incorrectly')
   await db.requestEarlyAccessPrivacy({email:'TEST.Person@example.invalid',requestType:'withdraw'})
   const privacyCall=calls[2]
-  if(!privacyCall.url.endsWith('/rest/v1/early_access_privacy_requests'))throw Error('Wrong privacy route')
-  if(JSON.parse(privacyCall.options.body).email!=='test.person@example.invalid')throw Error('Privacy email not normalised')
-  if(calls.some(c=>c.url.includes('/auth/v1/')))throw Error('Signup created an auth account')
+  if(!privacyCall.url.endsWith('/functions/v1/base-public-form'))throw Error('Wrong privacy route')
+  const privacyBody=JSON.parse(privacyCall.options.body)
+  if(privacyBody.email!=='test.person@example.invalid'||privacyBody.kind!=='privacy'||privacyBody.requestType!=='withdraw')
+   throw Error('Wrong privacy payload')
+  if(calls.some(c=>c.url.includes('/auth/v1/')||c.url.includes('/rest/v1/')))
+   throw Error('Public form bypassed controlled endpoint')
   const before=calls.length
   for(const values of [
    {email:'not-an-email',consent:true},
