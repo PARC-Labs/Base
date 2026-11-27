@@ -1,0 +1,2 @@
+[functions.base-public-form]
+verify_jwt = false
