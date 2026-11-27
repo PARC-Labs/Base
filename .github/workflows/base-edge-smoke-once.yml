@@ -1,0 +1,41 @@
+name: Base one-time live Edge form smoke
+on:
+  push:
+    branches: [verification/base-public-form-20261127]
+permissions:
+  contents: read
+jobs:
+  live-forms:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify real Edge submission and privacy path
+        env:
+          BASE_PROBE_SHA: ${{ github.sha }}
+        run: |
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          const endpoint='https://niotfttsjntivmpizrnc.supabase.co/functions/v1/base-public-form'
+          const email='base-edge-smoke-'+process.env.BASE_PROBE_SHA.slice(0,12)+'@example.invalid'
+          async function post(body,origin='https://parc-labs.github.io'){
+           const r=await fetch(endpoint,{method:'POST',headers:{origin,'content-type':'application/json'},
+            body:JSON.stringify(body),signal:AbortSignal.timeout(20000)})
+           console.log('HTTP',r.status,'kind',body.kind||'invalid')
+           return {status:r.status,text:await r.text(),origin:r.headers.get('access-control-allow-origin')}
+          }
+          const invalid=await post({kind:'signup',email:'invalid',consent:true})
+          assert.equal(invalid.status,400,'Invalid input must be rejected')
+          const badOrigin=await post({kind:'signup',email,consent:true},'https://evil.example')
+          assert.equal(badOrigin.status,403,'Foreign origin must be rejected')
+          const signup=await post({kind:'signup',email,practice:'researcher',intendedUse:'Automated synthetic Base probe',source:'qa',consent:true})
+          assert.equal(signup.status,200,'Valid signup must reach SQL through Edge: '+signup.text)
+          assert.equal(signup.origin,'https://parc-labs.github.io')
+          const duplicate=await post({kind:'signup',email,practice:'researcher',consent:true})
+          assert.equal(duplicate.status,200,'Duplicate registration should remain non-enumerating')
+          const privacy=await post({kind:'privacy',email,requestType:'withdraw'})
+          assert.equal(privacy.status,200,'Privacy request must reach SQL')
+          console.log('Live Edge form smoke succeeded. Synthetic email suffix:',process.env.BASE_PROBE_SHA.slice(0,12))
+          NODE
