@@ -155,16 +155,10 @@ export async function registerEarlyAccess(values={}){
  if(intendedUse.length>280)throw new Error('Your response must be 280 characters or fewer.')
  const rawSource=String(values.source||'direct').toLowerCase()
  const source=/^[a-z0-9_-]{1,40}$/.test(rawSource)?rawSource:'direct'
- try{
-  await rest('early_access_signups','',{
-   method:'POST',prefer:'return=minimal',
-   body:{email,practice,intended_use:intendedUse,source,opt_in:true}
-  })
- }catch(error){
-  // A duplicate email should have the same public confirmation as a new one.
-  // Never grant anonymous SELECT access to make an upsert work.
-  if(error.code!=='23505')throw error
- }
+ await request('/functions/v1/base-public-form',{
+  method:'POST',
+  body:{kind:'signup',email,practice,intendedUse,source,consent:true}
+ })
  return true
 }
 // Requests are write-only and reviewed manually; supplying an address alone
@@ -176,8 +170,8 @@ export async function requestEarlyAccessPrivacy(values={}){
   throw new Error('Enter a valid email address.')
  const kind=String(values.requestType||'')
  if(!['withdraw','access','correct'].includes(kind))throw new Error('Choose a request type.')
- await rest('early_access_privacy_requests','',{
-  method:'POST',prefer:'return=minimal',body:{email,request_type:kind}
+ await request('/functions/v1/base-public-form',{
+  method:'POST',body:{kind:'privacy',email,requestType:kind}
  })
  return true
 }
