@@ -6,6 +6,9 @@ const live = Boolean(config.supabaseUrl && config.supabaseAnonKey) && !browserPr
 export const isLive = live
 const DEMO_KEY = 'base_v1_demo_20261028'
 const SESSION_KEY = 'base_v1_session'
+const REQUEST_TIMEOUT_MS=20_000
+const UPLOAD_TIMEOUT_MS=90_000
+const MEDIA_LINK_TTL_SECONDS=600
 const MEDIA_BUCKET = 'base-media'
 const MEDIA_PATH = /^[0-9a-f-]{36}\/[0-9a-f-]{36}\.(webp|pdf)$/
 const now = () => new Date().toISOString()
@@ -44,7 +47,17 @@ async function request(path,{method='GET',body,prefer,skipRefresh=false}={}){
  // Sessions can expire while the application is open. Refresh once for concurrent
  // calls rather than requiring users to reload or losing an in-progress operation.
  if(!skipRefresh&&session?.refresh_token&&session.expires_at&&session.expires_at<=Math.floor(Date.now()/1000)+60)await refresh()
- const send=()=>fetch(config.supabaseUrl.replace(/\/$/,'')+path,{method,headers:{apikey:config.supabaseAnonKey,...(!skipRefresh&&bearer()?{Authorization:`Bearer ${bearer()}`} : {}),...(body!==undefined?{'Content-Type':'application/json'}:{}),...(prefer?{Prefer:prefer}:{})},body:body===undefined?undefined:JSON.stringify(body)})
+ const send=async()=>{
+  try{return await fetch(config.supabaseUrl.replace(/\/$/,'')+path,{
+   method,
+   headers:{apikey:config.supabaseAnonKey,...(!skipRefresh&&bearer()?{Authorization:`Bearer ${bearer()}`} : {}),...(body!==undefined?{'Content-Type':'application/json'}:{}),...(prefer?{Prefer:prefer}:{})},
+   body:body===undefined?undefined:JSON.stringify(body),
+   signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(REQUEST_TIMEOUT_MS):undefined
+  })}catch(error){
+   if(error?.name==='TimeoutError'||error?.name==='AbortError')throw new Error('The request timed out. Check your connection and try again.')
+   throw error
+  }
+ }
  const tokenUsed=session?.access_token
  let r=await send()
  if(!skipRefresh&&r.status===401&&session?.refresh_token){
@@ -99,10 +112,29 @@ async function bootAuth(){
   localStorage.setItem(SESSION_KEY,JSON.stringify(session));history.replaceState(null,'',location.pathname+location.search+'#signin')
  }
  try{session=JSON.parse(localStorage.getItem(SESSION_KEY)||'null')}catch{session=null}
- if(session){if(session.expires_at && session.expires_at<Math.floor(Date.now()/1000)+100)await refresh()
-  if(session){try{user=await request('/auth/v1/user');const memberships=await rest('memberships',`select=status&user_id=eq.${encodeURIComponent(user.id)}&limit=1`);isMember=memberships?.[0]?.status==='active'}catch{session=null;user=null;isMember=false;localStorage.removeItem(SESSION_KEY)}}}
+ if(session){
+  if(session.expires_at && session.expires_at<Math.floor(Date.now()/1000)+100)await refresh()
+  if(session){try{
+   user=await request('/auth/v1/user')
+   const memberships=await rest('memberships',`select=status&user_id=eq.${encodeURIComponent(user.id)}&limit=1`)
+   isMember=memberships?.[0]?.status==='active'
+  }catch(error){
+   user=null;isMember=false
+   if(error.status===401||error.status===403){session=null;localStorage.removeItem(SESSION_KEY)}
+   else authIssue='Base could not reach the account service. Your session is preserved; try refreshing.'
+  }}
+ }
 }
 export async function init(){await bootAuth()}
+// Sync logout across tabs; a stale tab must never continue to display a prior member session.
+if(live&&typeof window!=='undefined'&&window.addEventListener){
+ window.addEventListener('storage',event=>{
+  if(event.key!==SESSION_KEY)return
+  if(!event.newValue){session=null;user=null;isMember=false}
+  else if(!session){try{session=JSON.parse(event.newValue)}catch{session=null}}
+  if(typeof window.dispatchEvent==='function'&&typeof Event!=='undefined')window.dispatchEvent(new Event('base-auth-changed'))
+ })
+}
 export function authErrorMessage(){return authIssue}
 export function me(){if(!live){const d=readDemo();return {user:d.user,member:d.member,demo:true}}return {user,member:isMember,demo:false}}
 // Public expression of interest. This does not create an Auth user or membership.
@@ -183,7 +215,7 @@ export async function listSpaces(scope='explore'){
 }
 async function signedMediaUrl(path){
  if(!MEDIA_PATH.test(String(path||'')))return null
- const data=await request('/storage/v1/object/sign/'+MEDIA_BUCKET+'/'+path,{method:'POST',body:{expiresIn:3600}})
+ const data=await request('/storage/v1/object/sign/'+MEDIA_BUCKET+'/'+path,{method:'POST',body:{expiresIn:MEDIA_LINK_TTL_SECONDS}})
  const link=data?.signedURL||data?.signedUrl
  if(!link)return null
  const base=config.supabaseUrl.replace(/\/$/,'')
@@ -263,7 +295,7 @@ export async function getSpace(spaceId){
   if(!m.storage_path)return m
   try{return {...m,asset_url:await signedMediaUrl(m.storage_path)}}catch{return {...m,asset_url:null}}
  }))
- return {...s,materials:resolved,can_edit:!!user&&(s.owner_id===user.id||await isCollaborator(spaceId))}
+ return {...s,materials:resolved,can_edit:!!user&&isMember&&(s.owner_id===user.id||await isCollaborator(spaceId))}
 }
 async function isCollaborator(spaceId){const rows=await rest('space_collaborators',`select=user_id&space_id=eq.${encodeURIComponent(spaceId)}&user_id=eq.${encodeURIComponent(user.id)}&limit=1`);return !!rows.length}
 export async function createSpace(values){ensureMember();if(!live){const d=readDemo();const s={id:id(),owner_id:d.user.id,author_name:d.user.name,...values,cover_url:values.cover_url||null,updated_at:now(),parent_release_id:null};d.spaces.unshift(s);saveDemo();return s}
@@ -274,11 +306,13 @@ export async function addMaterial(spaceId,values){ensureMember();if(!live){const
  const rows=await rest('materials','select=*',{method:'POST',prefer:'return=representation',body:{space_id:spaceId,...values}});return rows[0]}
 async function uploadObject(path,blob,mime){
  if(!session?.access_token)throw new Error('Sign in to upload files.')
+ if(session.refresh_token&&session.expires_at<=Math.floor(Date.now()/1000)+60&&!await refresh())throw new Error('Could not refresh your session. Try again.')
  const response=await fetch(config.supabaseUrl.replace(/\/$/,'')+'/storage/v1/object/'+MEDIA_BUCKET+'/'+path,{
   method:'POST',
   headers:{apikey:config.supabaseAnonKey,Authorization:'Bearer '+session.access_token,
    'Content-Type':mime,'cache-control':'3600','x-upsert':'false'},
-  body:blob
+  body:blob,
+  signal:typeof AbortSignal!=='undefined'&&AbortSignal.timeout?AbortSignal.timeout(UPLOAD_TIMEOUT_MS):undefined
  })
  const text=await response.text()
  let result;try{result=JSON.parse(text)}catch{result=null}
@@ -286,6 +320,8 @@ async function uploadObject(path,blob,mime){
  return result
 }
 async function deleteObject(path){
+ if(session?.refresh_token&&session.expires_at<=Math.floor(Date.now()/1000)+60)await refresh()
+ if(!session?.access_token)throw new Error('Sign in to remove files.')
  const response=await fetch(config.supabaseUrl.replace(/\/$/,'')+'/storage/v1/object/'+MEDIA_BUCKET+'/'+path,{
   method:'DELETE',
   headers:{apikey:config.supabaseAnonKey,Authorization:'Bearer '+session.access_token}
@@ -313,7 +349,7 @@ export async function addUploadedMaterial(spaceId,file,values={}){
   throw error
  }
 }
-export async function removeMaterial(materialId){ensureMember();if(!live){const d=readDemo();d.materials=d.materials.filter(m=>m.id!==materialId);saveDemo();return}await rest('materials',`id=eq.${encodeURIComponent(materialId)}`,{method:'DELETE'})}
+export async function removeMaterial(materialId){ensureMember();if(!live){const d=readDemo();d.materials=d.materials.filter(m=>m.id!==materialId);saveDemo();return}const deleted=await rest('materials',`id=eq.${encodeURIComponent(materialId)}&select=id`,{method:'DELETE',prefer:'return=representation'});if(!deleted?.length)throw new Error('Material no longer exists or you cannot remove it.')}
 export async function listReleases(spaceId){if(!live)return readDemo().releases.filter(x=>x.space_id===spaceId).sort((a,b)=>b.version-a.version);return rest('releases',`select=id,space_id,version,created_at&space_id=eq.${encodeURIComponent(spaceId)}&order=version.desc`)}
 export async function releaseSpace(spaceId){ensureMember();if(!live){const d=readDemo();const s=d.spaces.find(x=>x.id===spaceId);if(!s)throw new Error('Unknown Space');const previous=d.releases.filter(x=>x.space_id===spaceId);const release={id:id(),space_id:spaceId,version:previous.length+1,created_at:now(),snapshot:{title:s.title,summary:s.summary,cover_url:s.cover_url,author_name:s.author_name,materials:d.materials.filter(m=>m.space_id===spaceId).map(m=>({type:m.type,title:m.title,url:m.url,body:m.body}))}};d.releases.push(release);saveDemo();return release}
  return rpc('release_space',{target_space_id:spaceId})}
