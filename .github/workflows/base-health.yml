@@ -1,0 +1,19 @@
+name: Base public health
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '18 7 * * *'
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  check-live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Production smoke (no DB writes)
+        run: node tests/production-smoke.mjs
